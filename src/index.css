@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* 1. Define your Fonts */
+  --font-serif: "Merriweather", serif;
+  --font-sans: "Inter", sans-serif;
+
+  /* 2. Define your Colors */
+  --color-santa-red: #A60B08;      /* Bright Red */
+  --color-santa-burgundy: #5E0001; /* Deep Red */
+  --color-santa-green: #1D2E19;    /* Dark Forest Green */
+  --color-santa-cream: #CFCABF;    /* Off-White background */
+  --color-santa-taupe: #76584C;    /* Brown/Neutral text */
+}
+
+/* Optional: Set defaults for the whole body */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-santa-cream);
+  color: var(--color-santa-taupe);
+}
+
+@layer base {
+  button:hover {
+    cursor: pointer;
+  }
+}
