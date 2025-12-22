@@ -101,7 +101,7 @@ export default function AddParticipant() {
 
                         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                             <div>
-                                <label className="block text-sm font-bold text-santa-green uppercase tracking-wider mb-2">Full Name</label>
+                                <label className="block text-sm font-bold text-santa-green uppercase tracking-wider mb-2">Full Name (Use a name everyone knowsyou by)</label>
                                 <input
                                     type="text"
                                     value={name}

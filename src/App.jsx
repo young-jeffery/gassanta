@@ -7,7 +7,7 @@ function App() {
   const [currentView, setCurrentView] = useState('register');
 
   const VIEW_TITLES = {
-    register: "Join the Exchange",
+    register: "Join the Fun",
     login: "Participant Portal",
     admin: "Admin Access"
   };
@@ -28,7 +28,7 @@ function App() {
         <h1 className="text-4xl md:text-5xl font-serif font-black text-santa-burgundy tracking-wider uppercase">
           Secret Santa
         </h1>
-        <p className="text-santa-taupe mt-2 font-serif italic">2025 Edition</p>
+        <p className="text-santa-taupe mt-2 font-serif">2025 Edition</p>
       </header>
 
       <div className="bg-white/50 p-1 rounded-full shadow-sm mb-10 flex items-center backdrop-blur-sm border border-santa-cream/20">

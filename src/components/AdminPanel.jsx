@@ -9,7 +9,7 @@ export default function AdminPanel() {
   // NEW: Function to clear all matches
   const resetMatches = async () => {
     const secretPassword = prompt("Enter Admin Password to RESET all matches:");
-    if (secretPassword !== "1234") return alert("Wrong password!");
+    if (secretPassword !== "5986") return alert("Wrong password!");
 
     if (!confirm("⚠️ ARE YOU SURE? \nThis will delete everyone's match assignment. The game will be reset to 'Waiting' mode.")) return;
 
@@ -37,7 +37,7 @@ export default function AdminPanel() {
 
   const shuffleParticipants = async () => {
     const secretPassword = prompt("Enter Admin Password to SHUFFLE:");
-    if (secretPassword !== "1234") return alert("Wrong password!"); 
+    if (secretPassword !== "5986") return alert("Wrong password!"); 
 
     setLoading(true);
     setStatus("Fetching names...");
