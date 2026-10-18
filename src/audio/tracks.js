@@ -6,7 +6,7 @@
 // - Keep each file small: mp3, 96-128 kbps, ideally under 3 MB. Phones on mobile data will thank you.
 // - The three entries below are placeholders. Rename the files or edit the entries to match yours.
 export const TRACKS = [
-  { id: "track-1", title: "Track One", credit: "", src: "../public/audio/leberch-christmas-440431.mp3" },
-  { id: "track-2", title: "Track Two", credit: "", src: "../public/audio/alex-morgan-we-wish-you-a-merry-christmas-545501.mp3" },
-  { id: "track-3", title: "Track Three", credit: "", src: "../public/audio/bfcmusic-christmas-party-time-249613.mp3" },
+  { id: "track-1", title: "Christmas", credit: "", src: "/audio/leberch-christmas-440431.mp3" },
+  { id: "track-2", title: "We Wish You a Merry Christmas", credit: "", src: "/audio/alex-morgan-we-wish-you-a-merry-christmas-545501.mp3" },
+  { id: "track-3", title: "Christmas Party Time", credit: "", src: "/audio/bfcmusic-christmas-party-time-249613.mp3" },
 ];

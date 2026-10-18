@@ -5,11 +5,13 @@ import { useTheme } from "../theme/useTheme";
 
 // Three depth layers, far to near. Nearer flakes are bigger, faster, brighter.
 const LAYERS = [
-  { speed: [16, 28], size: [0.8, 1.5], alpha: 0.45, sway: 6 },
-  { speed: [28, 46], size: [1.4, 2.4], alpha: 0.7, sway: 12 },
-  { speed: [46, 76], size: [2.2, 3.8], alpha: 0.95, sway: 20 },
+  { speed: [24, 38], size: [0.8, 1.5], alpha: 0.45, sway: 6 },
+  { speed: [38, 66], size: [1.4, 2.4], alpha: 0.7, sway: 12 },
+  { speed: [66, 100], size: [2.2, 3.8], alpha: 0.95, sway: 20 },
 ];
 const POINTER_RADIUS = 120;
+const MOBILE_WIDTH = 768;
+const MOBILE_DENSITY = 2;
 
 const rand = (min, max) => min + Math.random() * (max - min);
 
@@ -53,7 +55,8 @@ export default function SnowCanvas() {
 
     const targetCount = () => {
       const base = Math.round((w * h) / 7000);
-      const scaled = base * (lowPower ? 0.7 : 1) * (reduced ? 0.4 : 1);
+      const mobileBoost = w <= MOBILE_WIDTH ? MOBILE_DENSITY : 1;
+      const scaled = base * mobileBoost * (lowPower ? 0.7 : 1) * (reduced ? 0.4 : 1);
       return Math.max(30, Math.min(170, Math.round(scaled)));
     };
 

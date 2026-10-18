@@ -36,28 +36,28 @@ export const PALETTES = [
   {
     id: "christmas-at-grace",
     name: "Christmas At Grace",
-    mode: "light",
+    mode: "dark",
     colors: {
-      canvas: "#FCF1DB", // Snowfall
-      primary: "#7F1A1C", // Christmas Red
-      onPrimary: "#FCF1DB",
+      canvas: "#7F1A1C", // Christmas Red
+      surface: "#192B23", // Fresh Pine
+      primary: "#FCF1DB", // Snowfall
+      onPrimary: "#7F1A1C",
       accent: "#7B925E", // Merry Mint
-      ink: "#192B23", // Fresh Pine
-      muted: "#563A25", // Hot Chocolate
-      snow: "#7B925E",
+      ink: "#FCF1DB",
+      snow: "#FCF1DB",
     },
   },
   {
     id: "classic-christmas",
     name: "Classic Christmas",
-    mode: "light",
+    mode: "dark",
     colors: {
-      canvas: "#F6EEDC", // ivory
+      canvas: "#2F5D3A", // green
       primary: "#B3122B", // red
-      onPrimary: "#F6EEDC",
+      onPrimary: "#F6EEDC", // ivory
       accent: "#C9A24A", // gold
-      ink: "#2F5D3A", // green
-      snow: "#C9A24A",
+      ink: "#F6EEDC",
+      snow: "#F6EEDC",
     },
   },
   {
@@ -76,28 +76,27 @@ export const PALETTES = [
   {
     id: "sugarplum",
     name: "Sugarplum",
-    mode: "light",
+    mode: "dark",
     colors: {
-      canvas: "#F5EBD6", // cream
-      surface: "#F4C6D0", // blush pink
-      primary: "#6B1E3A", // plum
-      onPrimary: "#F5EBD6",
+      canvas: "#6B1E3A", // plum
+      primary: "#F4C6D0", // blush pink
+      onPrimary: "#6B1E3A",
       accent: "#D9788A", // rose
-      ink: "#6B1E3A",
-      snow: "#D9788A",
+      ink: "#F5EBD6", // cream
+      snow: "#F4C6D0",
     },
   },
   {
     id: "gingerbread",
     name: "Gingerbread",
-    mode: "light",
+    mode: "dark",
     colors: {
-      canvas: "#F7EDD8", // cream
-      primary: "#9A4F1E", // brown
-      onPrimary: "#F7EDD8",
+      canvas: "#9A4F1E", // brown
+      primary: "#234A2F", // green
+      onPrimary: "#F7EDD8", // cream
       accent: "#C9954A", // caramel
-      ink: "#234A2F", // green
-      snow: "#C9954A",
+      ink: "#F7EDD8",
+      snow: "#F7EDD8",
     },
   },
   {
