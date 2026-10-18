@@ -1,27 +1,65 @@
 @import "tailwindcss";
 
-@theme {
-  /* 1. Define your Fonts */
-  --font-serif: "Merriweather", serif;
-  --font-sans: "Inter", sans-serif;
+/*
+  Palette tokens.
+  ThemeProvider writes the --c-* variables on <html> for whichever palette is active
+  (the palettes themselves live in src/theme/palettes.js).
+  @theme inline maps them to Tailwind utilities: bg-canvas, bg-surface, bg-primary,
+  text-on-primary, text-ink, text-muted, border-accent, text-snow, and so on.
+  Opacity modifiers work too: bg-primary/20.
+*/
+@theme inline {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
 
-  /* 2. Define your Colors */
-  --color-santa-red: #A60B08;      /* Bright Red */
-  --color-santa-burgundy: #5E0001; /* Deep Red */
-  --color-santa-green: #1D2E19;    /* Dark Forest Green */
-  --color-santa-cream: #CFCABF;    /* Off-White background */
-  --color-santa-taupe: #76584C;    /* Brown/Neutral text */
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-primary: var(--c-primary);
+  --color-on-primary: var(--c-on-primary);
+  --color-accent: var(--c-accent);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-snow: var(--c-snow);
+  /* Fairy-light warm white. Same in every palette on purpose. */
+  --color-glow: #ffd27a;
 }
 
-/* Optional: Set defaults for the whole body */
+/* "Default" palette as a first-paint fallback, so there's no white flash before React mounts. */
+:root {
+  --c-canvas: #0d1c20;
+  --c-surface: #0a3d3a;
+  --c-primary: #6a161c;
+  --c-on-primary: #faecd8;
+  --c-accent: #faecd8;
+  --c-ink: #faecd8;
+  --c-muted: color-mix(in srgb, var(--c-ink) 68%, var(--c-canvas));
+  --c-snow: #faecd8;
+}
+
+html {
+  background-color: var(--c-canvas);
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
+  min-height: 100dvh;
   font-family: var(--font-sans);
-  background-color: var(--color-santa-cream);
-  color: var(--color-santa-taupe);
+  background-color: var(--c-canvas);
+  color: var(--c-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-@layer base {
-  button:hover {
-    cursor: pointer;
-  }
+button {
+  cursor: pointer;
+  touch-action: manipulation; /* removes the 300ms tap delay and double-tap zoom on buttons */
+}
+
+/* Safe-area helpers for notches and home-indicator bars */
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
