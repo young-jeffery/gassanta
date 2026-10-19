@@ -6,12 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Colors the phone's browser bar. ThemeProvider updates this whenever the palette changes. -->
     <meta name="theme-color" content="#0D1C20" />
+    <!--
+      Paints the saved palette's background BEFORE React loads, so there is no flash of the default colors.
+      Only the canvas color is needed here (nothing else is visible yet). Keep these in sync with
+      src/theme/palettes.js. ThemeProvider takes over once React mounts.
+    -->
+    <script>
+      (function () {
+        try {
+          var canvas = {
+            "default": "#0D1C20",
+            "christmas-at-grace": "#7F1A1C",
+            "classic-christmas": "#2F5D3A",
+            "snowy-woodland": "#F4EFE3",
+            "sugarplum": "#6B1E3A",
+            "gingerbread": "#9A4F1E",
+            "frosted-night": "#1B2A4A"
+          }[localStorage.getItem("ss-palette")];
+          if (canvas) {
+            document.documentElement.style.setProperty("--c-canvas", canvas);
+            document.querySelector('meta[name="theme-color"]').setAttribute("content", canvas);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>" />
     <title>Secret Santa</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800;900&family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;800&display=swap"
       rel="stylesheet"
     />
   </head>

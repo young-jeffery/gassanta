@@ -11,6 +11,8 @@
 @theme inline {
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Nunito", system-ui, sans-serif;
+  /* Roman-numeral face for the edition number (Cinzel is capitals only) */
+  --font-roman: "Cinzel", "Times New Roman", serif;
 
   --color-canvas: var(--c-canvas);
   --color-surface: var(--c-surface);
@@ -23,6 +25,9 @@
   /* Fairy-light warm white. Same in every palette on purpose. */
   --color-glow: #ffd27a;
 }
+
+/* Custom variant: `short:` applies on short screens (phones in landscape). Defined here so it sorts after md:. */
+@custom-variant short (@media (max-height: 500px));
 
 /* "Default" palette as a first-paint fallback, so there's no white flash before React mounts. */
 :root {
@@ -39,10 +44,24 @@
 html {
   background-color: var(--c-canvas);
   -webkit-text-size-adjust: 100%;
+  /*
+    Always reserve room for the scrollbar. A scrollbar appearing or disappearing (page-enter animation,
+    opening a sheet, a long page) can then never shift the layout sideways.
+    Has no effect on phones / overlay scrollbars.
+  */
+  scrollbar-gutter: stable;
+}
+
+/* Single-screen pages (the landing page) switch the scrollbar off entirely: nothing to reserve, nothing to shift. */
+html[data-no-scrollbar] {
+  scrollbar-width: none;
+}
+html[data-no-scrollbar]::-webkit-scrollbar {
+  display: none;
 }
 
 body {
-  min-height: 100dvh;
+  min-height: 100svh;
   font-family: var(--font-sans);
   background-color: var(--c-canvas);
   color: var(--c-ink);
@@ -56,9 +75,51 @@ button {
   touch-action: manipulation; /* removes the 300ms tap delay and double-tap zoom on buttons */
 }
 
+/* Mouse / trackpad only (never touch): snowflake cursor, glowing sparkle over clickable things */
+@media (hover: hover) and (pointer: fine) {
+  html {
+    cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%230f1726' stroke-width='4.6' stroke-opacity='0.6' fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(60 16 16)'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(120 16 16)'/></g><g stroke='%23fff8e6' stroke-width='2.2' stroke-opacity='1' fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(60 16 16)'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(120 16 16)'/></g><circle cx='16' cy='16' r='2.2' fill='%23fff8e6'/></svg>") 16 16, auto;
+  }
+  a[href],
+  button,
+  [role="button"],
+  summary,
+  label[for],
+  select {
+    cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 2.5Q17.4 14.6 29.5 16Q17.4 17.4 16 29.5Q14.6 17.4 2.5 16Q14.6 14.6 16 2.5Z' fill='%23ffd27a' stroke='%230f1726' stroke-opacity='0.7' stroke-width='1.8' stroke-linejoin='round'/><circle cx='16' cy='16' r='2' fill='%23fffdf4'/></svg>") 16 16, pointer;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea {
+    cursor: text;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* Safe-area helpers for notches and home-indicator bars */
 @utility pt-safe { padding-top: env(safe-area-inset-top); }
 @utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+/* Horizontal page padding: 1.25rem, or the notch inset if that's larger (phones in landscape) */
+@utility px-page {
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+
+/*
+  Adaptive quality (see src/lib/perf.js sets <html data-perf="0|1|2">).
+  Medium and light tiers drop backdrop blur (expensive on phones when something animates behind it);
+  the light tier also drops text shadows.
+*/
+html[data-perf="1"] *,
+html[data-perf="0"] * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-perf="0"] * {
+  text-shadow: none !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
