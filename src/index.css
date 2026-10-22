@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Title font: Striper (Fontshare, ITF Free Font License). One weight only (400), so never use bold with it. */
+@font-face {
+  font-family: "Striper";
+  src: url("/fonts/Striper-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /*
   Palette tokens.
   ThemeProvider writes the --c-* variables on <html> for whichever palette is active
@@ -10,6 +19,7 @@
 */
 @theme inline {
   --font-display: "Fraunces", Georgia, serif;
+  --font-title: "Striper", "Fraunces", Georgia, serif;
   --font-sans: "Nunito", system-ui, sans-serif;
   /* Roman-numeral face for the edition number (Cinzel is capitals only) */
   --font-roman: "Cinzel", "Times New Roman", serif;
@@ -58,6 +68,12 @@ html[data-no-scrollbar] {
 }
 html[data-no-scrollbar]::-webkit-scrollbar {
   display: none;
+}
+
+/* Page frozen behind an open sheet (set by useScrollLock). Cheap: one property, no layout rewrite. */
+html[data-scroll-locked] {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -123,4 +139,15 @@ html[data-perf="0"] * {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+}
+
+/* Landing title: soft shadow for legibility. It is switched off while the letters are still outlines
+   (the shadow would show through the empty glyphs) and fades in when the fill animation ends. */
+.hero-title {
+  text-shadow: 0 2px 24px color-mix(in srgb, var(--c-canvas) 70%, transparent);
+  transition: text-shadow 0.6s ease;
+}
+.hero-title[data-filling] {
+  text-shadow: none;
+  transition: none;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
-import { getTier, subscribeTier } from "../lib/perf";
+import { getTier, isBusy, subscribeTier } from "../lib/perf";
 import { useTheme } from "../theme/useTheme";
 
 // Three depth layers, far to near. Nearer flakes are bigger, faster, brighter.
@@ -120,8 +120,8 @@ export default function SnowCanvas() {
     };
 
     const tick = (time, deltaTime) => {
-      if (q.halfRate) {
-        // light tier: draw every other tick (30fps) and carry the skipped time into the next one
+      if (q.halfRate || isBusy()) {
+        // light tier, or a sheet is animating: draw every other tick (30fps), carrying the skipped time forward
         skip = !skip;
         if (skip) {
           pending += deltaTime;

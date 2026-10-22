@@ -36,8 +36,9 @@ export default function Dock() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // No backdrop-blur here: re-blurring the animated snow behind these buttons on every frame is costly on phones.
   const btn =
-    "relative grid h-12 w-12 place-items-center rounded-full border border-accent/40 bg-surface/80 text-ink shadow-lg backdrop-blur transition-[scale] active:scale-90";
+    "relative grid h-12 w-12 place-items-center rounded-full border border-accent/40 bg-surface/90 text-ink shadow-lg transition-[scale] active:scale-90";
 
   return createPortal(
     <>

@@ -66,6 +66,14 @@ function change(next, persist) {
   listeners.forEach((fn) => fn(tier));
 }
 
+// "Busy" = a heavy transition is running (a sheet sliding in or out). Background effects (the snow) run at
+// half rate during it so the transition gets the whole frame budget. Time-based, so it can never get stuck on.
+let busyUntil = 0;
+export function markBusy(ms) {
+  busyUntil = Math.max(busyUntil, performance.now() + ms);
+}
+export const isBusy = () => performance.now() < busyUntil;
+
 export const getTier = () => tier;
 export const getFps = () => fps;
 
@@ -100,7 +108,10 @@ export function startPerfMonitor() {
   const loop = (now) => {
     if (last) {
       const dt = Math.min(now - last, 250); // a stall counts as one very slow frame, not an endless one
-      if (settle > 0) {
+      if (isBusy()) {
+        reset(); // transition frames say nothing about the device's general speed
+        settle = 20;
+      } else if (settle > 0) {
         settle -= 1;
       } else {
         count += 1;

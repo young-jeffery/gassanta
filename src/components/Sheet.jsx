@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
+import { markBusy } from "../lib/perf";
 import { useScrollLock } from "../lib/useScrollLock";
 
 const DISMISS_DISTANCE = 100; // px dragged down before it counts as "dismiss"
@@ -11,6 +12,11 @@ const DISMISS_VELOCITY = 0.6; // px per ms: a quick flick also dismisses
 // - Swiping down drags the sheet and dismisses it. Inside the scrolling list, the swipe only
 //   dismisses once the list is already at its top; otherwise it scrolls the list.
 // Stays mounted while it animates out, then unmounts.
+//
+// Smoothness choices (the Galaxy S20 stuttered on this): no backdrop blur and no big blurred shadow (both are
+// re-blurred/re-rasterized every frame while the snow animates behind), the panel and backdrop get their own
+// GPU layers up front (will-change + force3D), the page lock doesn't re-layout the document, and the snow
+// drops to half rate while the sheet is sliding (markBusy).
 export default function Sheet({ open, onClose, title, children }) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef(null);
@@ -34,15 +40,22 @@ export default function Sheet({ open, onClose, title, children }) {
       const quick = prefersReducedMotion();
       gsap.killTweensOf([backdropRef.current, panelRef.current]); // in case a close/open is mid-animation
       if (open) {
+        markBusy(700);
         gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: quick ? 0 : 0.25 });
-        gsap.fromTo(panelRef.current, { yPercent: 100 }, { yPercent: 0, duration: quick ? 0 : 0.5, ease: "power3.out" });
+        gsap.fromTo(
+          panelRef.current,
+          { yPercent: 100 },
+          { yPercent: 0, duration: quick ? 0 : 0.5, ease: "power3.out", force3D: true }
+        );
       } else {
+        markBusy(500);
         // Starts from wherever the panel currently is, so a swipe-dismiss continues smoothly
         gsap.to(backdropRef.current, { opacity: 0, duration: quick ? 0 : 0.2 });
         gsap.to(panelRef.current, {
           yPercent: 100,
           duration: quick ? 0 : 0.3,
           ease: "power2.in",
+          force3D: true,
           onComplete: () => setMounted(false),
         });
       }
@@ -111,10 +124,11 @@ export default function Sheet({ open, onClose, title, children }) {
       dragging = false;
 
       const offset = (Number(gsap.getProperty(panel, "yPercent")) / 100) * height();
+      markBusy(500);
       if (offset > DISMISS_DISTANCE || velocity > DISMISS_VELOCITY) {
         onCloseRef.current();
       } else {
-        gsap.to(panel, { yPercent: 0, duration: 0.3, ease: "power3.out" });
+        gsap.to(panel, { yPercent: 0, duration: 0.3, ease: "power3.out", force3D: true });
         gsap.to(backdropRef.current, { opacity: 1, duration: 0.3 });
       }
     };
@@ -135,12 +149,12 @@ export default function Sheet({ open, onClose, title, children }) {
 
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={title}>
-      <div ref={backdropRef} onClick={onClose} className="absolute inset-0 touch-none bg-black/50 backdrop-blur-[2px]" />
+      <div ref={backdropRef} onClick={onClose} className="absolute inset-0 touch-none bg-black/55 will-change-[opacity]" />
       <div
         ref={panelRef}
-        className="pb-safe absolute inset-x-0 bottom-0 mx-auto flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl border border-b-0 border-accent/30 bg-surface shadow-2xl"
+        className="pb-safe absolute inset-x-0 bottom-0 mx-auto flex max-h-[80svh] w-full max-w-md flex-col rounded-t-3xl border border-b-0 border-accent/30 bg-surface will-change-transform"
       >
-        <div className="shrink-0 px-5 pt-3">
+        <div className="shrink-0 touch-none px-5 pt-3">
           <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-ink/25" />
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-xl font-extrabold text-ink">{title}</h2>
