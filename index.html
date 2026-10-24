@@ -7,26 +7,32 @@
     <!-- Colors the phone's browser bar. ThemeProvider updates this whenever the palette changes. -->
     <meta name="theme-color" content="#0D1C20" />
     <!--
-      Paints the saved palette's background BEFORE React loads, so there is no flash of the default colors.
-      Only the canvas color is needed here (nothing else is visible yet). Keep these in sync with
-      src/theme/palettes.js. ThemeProvider takes over once React mounts.
+      Paints the saved palette's background BEFORE React loads, so there is no flash of the wrong colors.
+      Picks night or day the same way the app does: the saved choice, otherwise the device's light/dark setting.
+      Only the canvas color is needed here (nothing else is visible yet). Each entry is [night, day].
+      These values are computed from src/theme/palettes.js + variants.js. If you change a palette's colors, the dev
+      console will warn when this table is out of date. ThemeProvider takes over once React mounts.
     -->
     <script>
       (function () {
         try {
           var canvas = {
-            "default": "#0D1C20",
-            "christmas-at-grace": "#7F1A1C",
-            "classic-christmas": "#2F5D3A",
-            "snowy-woodland": "#F4EFE3",
-            "sugarplum": "#6B1E3A",
-            "gingerbread": "#9A4F1E",
-            "frosted-night": "#1B2A4A"
-          }[localStorage.getItem("ss-palette")];
-          if (canvas) {
-            document.documentElement.style.setProperty("--c-canvas", canvas);
-            document.querySelector('meta[name="theme-color"]').setAttribute("content", canvas);
-          }
+            "default": ["#0D1C20", "#faecd8"],
+            "christmas-at-grace": ["#7F1A1C", "#fcf1db"],
+            "classic-christmas": ["#2F5D3A", "#f6eedc"],
+            "snowy-woodland": ["#012714", "#F4EFE3"],
+            "sugarplum": ["#6B1E3A", "#f8eed8"],
+            "gingerbread": ["#9A4F1E", "#f8eed9"],
+            "frosted-night": ["#1B2A4A", "#f5f5f5"]
+          };
+          var saved = localStorage.getItem("ss-mode");
+          var day = saved === "day" ? true : saved === "night" ? false : window.matchMedia("(prefers-color-scheme: light)").matches;
+          var id = localStorage.getItem("ss-palette");
+          if (!canvas[id]) id = "default";
+          var c = canvas[id][day ? 1 : 0];
+          document.documentElement.style.setProperty("--c-canvas", c);
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", c);
+          window.__ssBoot = { id: id, mode: day ? "day" : "night", canvas: c };
         } catch (e) {}
       })();
     </script>

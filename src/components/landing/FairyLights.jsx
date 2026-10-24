@@ -64,11 +64,29 @@ export default function FairyLights() {
           ))}
         </g>
 
-        {/* Outer <g> positions the bulb; the inner data-bulb <g> is what GSAP will animate later */}
+        {/* Halos live in ONE group (behind the bulbs) so day mode can dim them all together. data-dim = the
+            group's opacity in day mode; useDayNightScene.js fades it. */}
+        <g data-dim="0.4">
+          {lights.bulbs.map((b, i) => {
+            const rad = (b.rot * Math.PI) / 180; // the bulb's center, 9px below its cap, rotated with the bulb
+            return (
+              <circle
+                key={i}
+                data-halo
+                cx={b.x - 9 * Math.sin(rad)}
+                cy={b.y + 9 * Math.cos(rad)}
+                r="15"
+                fill={`url(#fl-halo-${b.key})`}
+                opacity="0.6"
+              />
+            );
+          })}
+        </g>
+
+        {/* Outer <g> positions the bulb; the inner data-bulb <g> is what GSAP animates */}
         {lights.bulbs.map((b, i) => (
           <g key={i} transform={`translate(${b.x} ${b.y}) rotate(${b.rot})`}>
             <g data-bulb>
-              <circle data-halo cy="9" r="15" fill={`url(#fl-halo-${b.key})`} opacity="0.6" />
               <rect x="-2.2" y="-1" width="4.4" height="4" rx="1" style={{ fill: "var(--c-muted)" }} />
               <ellipse
                 data-glass

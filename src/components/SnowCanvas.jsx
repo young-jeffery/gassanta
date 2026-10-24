@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
-import { getTier, isBusy, subscribeTier } from "../lib/perf";
+import { getDivisor, getTier, isBusy, recordWork, subscribeTier } from "../lib/perf";
 import { useTheme } from "../theme/useTheme";
 
 // Three depth layers, far to near. Nearer flakes are bigger, faster, brighter.
@@ -14,18 +14,19 @@ const POINTER_RADIUS = 120;
 const MOBILE_WIDTH = 768;
 const MOBILE_DENSITY = 2;
 
-// Quality per performance tier (see lib/perf.js)
+// Quality per performance tier (see lib/perf.js). Tiers scale density and resolution only.
+// halfRate (tier 0 only) draws at 30fps; every other tier draws at up to 60fps.
 const QUALITY = {
-  2: { dpr: 2, density: 1, halfRate: false, stir: true },
-  1: { dpr: 1.5, density: 0.65, halfRate: false, stir: true },
-  0: { dpr: 1, density: 0.35, halfRate: true, stir: false },
+  2: { dpr: 2, density: 1, halfRate: false },
+  1: { dpr: 1.5, density: 0.75, halfRate: false },
+  0: { dpr: 1, density: 0.5, halfRate: true },
 };
 
 const rand = (min, max) => min + Math.random() * (max - min);
 
 // Full-screen falling snow. Drag a finger or move the mouse and the flakes get pushed around.
 // One canvas + one GSAP ticker loop; flakes are batched per layer to keep it cheap on phones.
-// Quality follows the adaptive performance tier: pixel density, flake count, frame rate, pointer push.
+// Quality follows the adaptive performance tier: pixel density and flake count (frame rate only at tier 0).
 export default function SnowCanvas() {
   const canvasRef = useRef(null);
   const colorRef = useRef("#ffffff");
@@ -48,7 +49,7 @@ export default function SnowCanvas() {
     let h = 0;
     let flakes = [];
     let bounds = [0, 0, 0, 0]; // flakes are kept sorted by layer; bounds[l]..bounds[l+1] is layer l
-    let skip = false;
+    let ticks = 0;
     let pending = 0;
     let resizeTimer = 0;
     const pointer = { x: 0, y: 0, vx: 0, vy: 0, lastMove: -1e9 };
@@ -120,18 +121,19 @@ export default function SnowCanvas() {
     };
 
     const tick = (time, deltaTime) => {
-      if (q.halfRate || isBusy()) {
-        // light tier, or a sheet is animating: draw every other tick (30fps), carrying the skipped time forward
-        skip = !skip;
-        if (skip) {
-          pending += deltaTime;
-          return;
-        }
+      // Frame gate: draw at most ~60fps (every 2nd tick on 120Hz screens), 30fps at tier 0 or while a sheet
+      // slides. Skipped ticks pass their time forward, so motion speed is identical.
+      const every = getDivisor() * (q.halfRate || isBusy() ? 2 : 1);
+      ticks += 1;
+      if (ticks % every !== 0) {
+        pending += deltaTime;
+        return;
       }
+      const t0 = performance.now();
       const dt = Math.min(deltaTime + pending, 100) / 1000; // clamp so a lag spike doesn't teleport flakes
       pending = 0;
       const t = time;
-      const pointerActive = q.stir && !reduced && performance.now() - pointer.lastMove < 120;
+      const pointerActive = !reduced && performance.now() - pointer.lastMove < 120;
 
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = colorRef.current;
@@ -172,6 +174,7 @@ export default function SnowCanvas() {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+      recordWork(performance.now() - t0);
     };
 
     const unsubscribeTier = subscribeTier((tier) => {

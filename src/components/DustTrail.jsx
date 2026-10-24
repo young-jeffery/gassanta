@@ -1,25 +1,26 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
-import { getTier, subscribeTier } from "../lib/perf";
+import { setDustEmitter } from "../lib/dustBus";
+import { getDivisor, getTier, recordWork, subscribeTier } from "../lib/perf";
 import { useTheme } from "../theme/useTheme";
 
 const POOL_SIZE = 90;
 const MAX_PER_EVENT = 6;
 const GLOW = "#ffd27a";
 
-// Quality per performance tier (see lib/perf.js)
+// Quality per performance tier (see lib/perf.js): density and resolution only
 const QUALITY = {
   2: { dpr: 1.5, max: 90, step: 9 },
-  1: { dpr: 1, max: 60, step: 11 },
-  0: { dpr: 1, max: 32, step: 14 },
+  1: { dpr: 1, max: 70, step: 10 },
+  0: { dpr: 1, max: 45, step: 12 },
 };
 
 const rand = (min, max) => min + Math.random() * (max - min);
 
-// Snow-dust trail that follows a finger or mouse, plus a small burst on tap/click.
-// One canvas, one GSAP ticker, a fixed pool of particles (no allocation while moving).
-// The canvas is hidden whenever no particles are alive, so it costs nothing when idle.
+// Snow-dust trail that follows a finger or mouse, plus bursts on tap/click. Other components can also spawn
+// particles through lib/dustBus.js (hover cursor, tap reactions). One canvas, one ticker, a fixed particle
+// pool, no allocation while moving. The canvas is hidden whenever nothing is alive, so it costs nothing idle.
 export default function DustTrail() {
   const canvasRef = useRef(null);
   const colorRef = useRef("#ffffff");
@@ -41,8 +42,12 @@ export default function DustTrail() {
     let cursor = 0;
     let alive = 0;
     let shown = false;
-    let last = null; // last pointer position, to fill gaps on fast moves
+    let hasLast = false; // last pointer position, to fill gaps on fast moves (plain numbers: no allocation)
+    let lastX = 0;
+    let lastY = 0;
     let resizeTimer = 0;
+    let ticks = 0;
+    let pending = 0;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, q.dpr);
@@ -80,28 +85,34 @@ export default function DustTrail() {
     };
 
     const trail = (x, y) => {
-      if (last) {
-        const dx = x - last.x;
-        const dy = y - last.y;
+      if (hasLast) {
+        const dx = x - lastX;
+        const dy = y - lastY;
         const count = Math.min(MAX_PER_EVENT, Math.floor(Math.hypot(dx, dy) / q.step));
-        for (let i = 1; i <= count; i++) spawn(last.x + (dx * i) / count, last.y + (dy * i) / count, false);
-        if (count > 0) last = { x, y };
+        for (let i = 1; i <= count; i++) spawn(lastX + (dx * i) / count, lastY + (dy * i) / count, false);
+        if (count > 0) {
+          lastX = x;
+          lastY = y;
+        }
       } else {
-        last = { x, y };
+        hasLast = true;
+        lastX = x;
+        lastY = y;
       }
     };
     const burst = (x, y) => {
-      last = { x, y };
+      hasLast = true;
+      lastX = x;
+      lastY = y;
       const n = Math.round(12 * (q.max / 90) + 4);
       for (let i = 0; i < n; i++) spawn(x, y, true);
     };
     const end = () => {
-      last = null; // a lifted finger shouldn't draw a line to the next touch
+      hasLast = false; // a lifted finger shouldn't draw a line to the next touch
     };
 
     // Mouse/pen: pointer events. Touch: touch events, because Android cancels pointer events the moment
-    // the browser thinks a drag might be a scroll (that's why the trail only showed on tap there),
-    // while touchmove keeps firing.
+    // the browser thinks a drag might be a scroll, while touchmove keeps firing.
     const onPointerMove = (e) => {
       if (e.pointerType !== "touch") trail(e.clientX, e.clientY);
     };
@@ -119,7 +130,14 @@ export default function DustTrail() {
 
     const tick = (time, deltaTime) => {
       if (alive === 0) return;
-      const dt = Math.min(deltaTime, 50) / 1000;
+      ticks += 1;
+      if (ticks % getDivisor() !== 0) {
+        pending += deltaTime; // 60fps cap on 120Hz screens; time carries forward so speed is unchanged
+        return;
+      }
+      const t0 = performance.now();
+      const dt = Math.min(deltaTime + pending, 50) / 1000;
+      pending = 0;
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       const base = colorRef.current;
 
@@ -150,11 +168,18 @@ export default function DustTrail() {
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
         show(false);
       }
+      recordWork(performance.now() - t0);
     };
 
     const unsubscribeTier = subscribeTier((tier) => {
       q = QUALITY[tier];
       resize();
+    });
+
+    // Other components spawn particles through the bus
+    setDustEmitter((x, y, opts) => {
+      const n = opts?.count ?? 1;
+      for (let i = 0; i < n; i++) spawn(x, y, !!opts?.burst);
     });
 
     canvas.style.visibility = "hidden";
@@ -170,6 +195,7 @@ export default function DustTrail() {
     window.addEventListener("touchcancel", end, { passive: true });
 
     return () => {
+      setDustEmitter(null);
       gsap.ticker.remove(tick);
       unsubscribeTier();
       clearTimeout(resizeTimer);

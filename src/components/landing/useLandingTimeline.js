@@ -1,15 +1,13 @@
 import { useLayoutEffect } from "react";
 import { gsap } from "../../lib/gsap";
 import { prefersReducedMotion } from "../../lib/motion";
-import { getTier, subscribeTier } from "../../lib/perf";
+import { getTier } from "../../lib/perf";
 
 // Landing page animation: the entrance timeline plus the idle loops that keep it alive afterwards.
 // It finds its pieces by data-* attributes inside three roots: [data-scene], [data-lights], [data-hero]
 // (the scene and lights are portaled into <body>, so we can't use a React ref scope for them).
 //
-// Quality follows the performance tier (lib/perf.js):
-//   tier 2 = everything     tier 1 = fewer twinkling stars, no window flicker, rarer shooting star
-//   tier 0 = no title fill, no wire draw, 1.4x faster entrance, only the smoke loops
+// Every animation runs on every device. The performance tier (lib/perf.js) only changes HOW MANY stars twinkle.
 // Reduced motion: nothing runs, the page just shows its final state.
 // Tapping anywhere during the entrance fast-forwards it. Replays are always the full-length version.
 
@@ -18,6 +16,7 @@ const rnd = gsap.utils.random;
 // ---- Title "fill": each letter starts as an empty outline, then ink rises inside it like liquid. ----
 // Done with a gradient clipped to the text. The gradient's soft edge sits in the 46%-54% band, which is
 // exactly the part that stays off-screen at both ends of the animation (background-size is 220%).
+// The outline stroke itself lives in CSS (.hero-title) and never changes, so the weight stays constant.
 const FILL_GRADIENT = "linear-gradient(to bottom, transparent 46%, var(--c-ink) 54%)";
 const FILL_PROPS = [
   "background-image",
@@ -27,7 +26,6 @@ const FILL_PROPS = [
   "-webkit-background-clip",
   "background-clip",
   "-webkit-text-fill-color",
-  "-webkit-text-stroke",
 ];
 
 function applyOutline(letters) {
@@ -40,7 +38,6 @@ function applyOutline(letters) {
     s.setProperty("-webkit-background-clip", "text");
     s.setProperty("background-clip", "text");
     s.setProperty("-webkit-text-fill-color", "transparent");
-    s.setProperty("-webkit-text-stroke", "1px var(--c-ink)");
   }
 }
 
@@ -50,23 +47,21 @@ function clearOutline(letters) {
 
 // One letter: falls (stretched), squashes on impact, rebounds, lands again, wobbles to rest.
 // The fill rises while it bounces.
-function letterTimeline(el, withFill) {
-  const t = gsap.timeline();
-  t.fromTo(
-    el,
-    { yPercent: -260, scaleX: 0.85, scaleY: 1.3, rotation: rnd(-12, 12), transformOrigin: "50% 100%" },
-    { yPercent: 0, scaleX: 0.9, scaleY: 1.12, rotation: 0, duration: 0.42, ease: "power2.in" },
-    0
-  )
+function letterTimeline(el) {
+  return gsap
+    .timeline()
+    .fromTo(
+      el,
+      { yPercent: -260, scaleX: 0.85, scaleY: 1.3, rotation: rnd(-12, 12), transformOrigin: "50% 100%" },
+      { yPercent: 0, scaleX: 0.9, scaleY: 1.12, rotation: 0, duration: 0.42, ease: "power2.in" },
+      0
+    )
     .fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 }, 0)
     .to(el, { scaleY: 0.72, scaleX: 1.22, duration: 0.08, ease: "power2.out" })
     .to(el, { yPercent: -26, scaleY: 1.1, scaleX: 0.92, duration: 0.18, ease: "power2.out" })
     .to(el, { yPercent: 0, scaleY: 0.88, scaleX: 1.1, duration: 0.16, ease: "power2.in" })
-    .to(el, { scaleX: 1, scaleY: 1, duration: 0.6, ease: "elastic.out(1, 0.4)" });
-  if (withFill) {
-    t.fromTo(el, { backgroundPosition: "0% 0%" }, { backgroundPosition: "0% 100%", duration: 0.9, ease: "sine.inOut" }, 0.25);
-  }
-  return t;
+    .to(el, { scaleX: 1, scaleY: 1, duration: 0.6, ease: "elastic.out(1, 0.4)" })
+    .fromTo(el, { backgroundPosition: "0% 0%" }, { backgroundPosition: "0% 100%", duration: 0.9, ease: "sine.inOut" }, 0.25);
 }
 
 // Returns { cleanup, timeline } (timeline is returned for testing). Safe to call twice (React StrictMode).
@@ -77,13 +72,14 @@ export function startLandingAnimation() {
   if (!scene || !lights || !hero) return null;
 
   const all = (root, sel) => gsap.utils.toArray(sel, root);
-  const tier = getTier();
-  const withFill = tier > 0;
 
   // Pieces
   const sky = scene.querySelector("[data-sky]");
   const starsSvg = scene.querySelector("[data-stars]");
-  const moon = scene.querySelector("[data-moon]");
+  const startDay = document.documentElement.dataset.mode === "day";
+  const celestial = scene.querySelector(startDay ? "[data-sun]" : "[data-moon]"); // the one that rises with the scene
+  const otherCelestial = scene.querySelector(startDay ? "[data-moon]" : "[data-sun]");
+  const clouds = scene.querySelector("[data-clouds]");
   const shot = scene.querySelector("[data-shooting]");
   const layers = all(scene, "[data-layer]");
   const stars = all(scene, "[data-star]");
@@ -103,14 +99,15 @@ export function startLandingAnimation() {
   const ctas = all(hero, "[data-hero-cta]");
 
   let cancelled = false;
-  let nextShot = null;
+  let shotTimer = 0;
   let fontTimer = 0;
-  const idle = []; // loops that pause when the tier drops to 0
-  const smoke = []; // smoke keeps running at every tier
+  const idle = []; // GSAP loops started after the entrance
+  const smoke = []; // smoke loops
+  const shotAnims = []; // Web Animations (shooting star)
 
   // ---- Idle loops ----
   const startStars = () => {
-    const n = getTier() >= 2 ? 14 : getTier() === 1 ? 8 : 0;
+    const n = getTier() >= 2 ? 14 : getTier() === 1 ? 11 : 8; // density only
     gsap.utils.shuffle([...stars]).slice(0, n).forEach((el) => {
       idle.push(
         gsap.to(el, {
@@ -136,8 +133,8 @@ export function startLandingAnimation() {
     });
   };
 
+  // Two groups of halos breathe in turn (the lights are their own small layer, so this repaint is tiny)
   const startBulbs = () => {
-    if (getTier() === 0) return;
     const even = bulbHalos.filter((_, i) => i % 2 === 0);
     const odd = bulbHalos.filter((_, i) => i % 2 === 1);
     idle.push(gsap.to(even, { opacity: 0.3, duration: 1.2, ease: "sine.inOut", yoyo: true, repeat: -1 }));
@@ -145,7 +142,6 @@ export function startLandingAnimation() {
   };
 
   const startFlicker = () => {
-    if (getTier() < 2) return;
     windows.forEach((w, i) => {
       idle.push(
         gsap
@@ -158,23 +154,37 @@ export function startLandingAnimation() {
     });
   };
 
+  // Shooting star: a Web Animation on its own root element, so it runs on the compositor and stays
+  // smooth even when JavaScript is busy. Rarer on weaker tiers.
   const startShooting = () => {
-    if (getTier() === 0 || !shot) return;
-    const streak = gsap.timeline({ paused: true });
-    streak
-      .to(shot, { opacity: 1, duration: 0.1 })
-      .to(shot, { x: "-=320", y: "+=120", duration: 0.8, ease: "power1.in" }, 0)
-      .to(shot, { opacity: 0, duration: 0.3 }, 0.55);
+    if (!shot || !shot.animate) return;
     const fire = () => {
       if (cancelled) return;
-      gsap.set(shot, { x: rnd(0.5, 0.92) * window.innerWidth, y: rnd(0.04, 0.2) * window.innerHeight, opacity: 0 });
-      streak.invalidate().restart();
+      if (document.documentElement.dataset.mode === "day") {
+        schedule(); // no shooting stars in daylight; check again later
+        return;
+      }
+      const x0 = rnd(0.5, 0.92) * window.innerWidth;
+      const y0 = rnd(0.04, 0.2) * window.innerHeight;
+      const move = (dx, dy) => `translate(${Math.round(x0 - dx)}px, ${Math.round(y0 + dy)}px)`;
+      shotAnims.push(
+        shot.animate(
+          [
+            { transform: move(0, 0), opacity: 0 },
+            { transform: move(60, 22), opacity: 1, offset: 0.12 },
+            { transform: move(300, 112), opacity: 0.9, offset: 0.7 },
+            { transform: move(340, 128), opacity: 0 },
+          ],
+          { duration: 900, easing: "cubic-bezier(0.45, 0, 1, 1)" }
+        )
+      );
+      if (shotAnims.length > 3) shotAnims.shift();
       schedule();
     };
     const schedule = () => {
-      nextShot = gsap.delayedCall(getTier() >= 2 ? rnd(8, 15) : rnd(16, 26), fire);
+      const [min, max] = getTier() >= 2 ? [8, 15] : [14, 24];
+      shotTimer = setTimeout(fire, rnd(min, max) * 1000);
     };
-    idle.push(streak);
     schedule();
   };
 
@@ -189,7 +199,9 @@ export function startLandingAnimation() {
     gsap.set(sky, { autoAlpha: 0 });
     gsap.set(layers, { y: 50, autoAlpha: 0 });
     gsap.set(starsSvg, { autoAlpha: 0 });
-    gsap.set(moon, { autoAlpha: 0, scale: 0.6 });
+    gsap.set(celestial, { autoAlpha: 0, scale: 0.6 });
+    gsap.set(otherCelestial, { autoAlpha: 0 });
+    gsap.set(clouds, { autoAlpha: 0 });
     gsap.set(wires, { autoAlpha: 0, strokeDasharray: "1 1", strokeDashoffset: 1 });
     gsap.set(hooks, { scale: 0 });
     gsap.set(bulbs, { scale: 0, transformOrigin: "50% 0%" });
@@ -204,7 +216,7 @@ export function startLandingAnimation() {
     gsap.set(ctas, { autoAlpha: 0, scale: 0.8, y: 10 });
     gsap.set(letters, { autoAlpha: 0 });
     if (title) title.setAttribute("data-filling", "");
-    if (withFill) applyOutline(letters);
+    applyOutline(letters);
   });
 
   // ---- Entrance timeline (built paused; starts once the title font is ready) ----
@@ -221,20 +233,19 @@ export function startLandingAnimation() {
 
   ctx.add(() => {
     tl = gsap.timeline({ paused: true, onComplete: finish });
-    if (tier === 0) tl.timeScale(1.4);
 
     // World
     tl.to(sky, { autoAlpha: 1, duration: 0.8, ease: "power1.out" }, 0)
       .to(layers, { y: 0, autoAlpha: 1, duration: 0.9, stagger: 0.15, ease: "power3.out" }, 0.1)
       .to(starsSvg, { autoAlpha: 1, duration: 1 }, 0.5)
-      .to(moon, { autoAlpha: 1, scale: 1, duration: 1, ease: "power2.out" }, 0.4)
+      .to(celestial, { autoAlpha: 1, scale: 1, duration: 1, ease: "power2.out" }, 0.4)
+      .to(clouds, { autoAlpha: 1, duration: 1.4 }, 0.8)
       .call(startStars, null, 0.6);
 
     // Fairy lights: wire draws in, bulbs pop, then light up left to right in a wave
-    tl.set(wires, { autoAlpha: 1 }, 0.7);
-    if (tier > 0) tl.to(wires, { strokeDashoffset: 0, duration: 0.9, stagger: 0.12, ease: "power2.inOut" }, 0.7);
-    else tl.set(wires, { strokeDashoffset: 0 }, 0.7);
-    tl.to(hooks, { scale: 1, duration: 0.4, stagger: 0.08, ease: "back.out(2)" }, 0.75)
+    tl.set(wires, { autoAlpha: 1 }, 0.7)
+      .to(wires, { strokeDashoffset: 0, duration: 0.9, stagger: 0.12, ease: "power2.inOut" }, 0.7)
+      .to(hooks, { scale: 1, duration: 0.4, stagger: 0.08, ease: "back.out(2)" }, 0.75)
       .to(bulbs, { scale: 1, duration: 0.7, stagger: 0.05, ease: "elastic.out(1, 0.5)" }, 0.9)
       .to(glass, { opacity: 1, duration: 0.35, stagger: 0.06, ease: "power1.out" }, 1.0)
       .to(bulbHalos, { opacity: 0.6, duration: 0.45, stagger: 0.06, ease: "power1.out" }, 1.0);
@@ -247,7 +258,7 @@ export function startLandingAnimation() {
 
     // Text
     tl.to(eyebrow, { autoAlpha: 1, y: 0, duration: 0.7, ease: "power2.out" }, 1.2);
-    letters.forEach((el, i) => tl.add(letterTimeline(el, withFill), 1.3 + i * 0.07));
+    letters.forEach((el, i) => tl.add(letterTimeline(el), 1.3 + i * 0.07));
     tl.to(tagline, { autoAlpha: 1, y: 0, duration: 0.7, ease: "power2.out" }, 2.1).to(
       ctas,
       { autoAlpha: 1, scale: 1, y: 0, duration: 0.6, stagger: 0.12, ease: "back.out(2)" },
@@ -265,20 +276,16 @@ export function startLandingAnimation() {
   });
 
   window.addEventListener("pointerdown", speedUp, { passive: true });
-  const unsubscribeTier = subscribeTier((next) => {
-    idle.forEach((t) => t.paused(next === 0));
-    if (nextShot) nextShot.paused(next === 0);
-  });
 
   const cleanup = () => {
     cancelled = true;
     clearTimeout(fontTimer);
+    clearTimeout(shotTimer);
     window.removeEventListener("pointerdown", speedUp);
-    unsubscribeTier();
     gsap.killTweensOf(tl);
     idle.forEach((t) => t.kill());
     smoke.forEach((t) => t.kill());
-    if (nextShot) nextShot.kill();
+    shotAnims.forEach((a) => a.cancel());
     ctx.revert();
     clearOutline(letters);
     if (title) title.removeAttribute("data-filling");

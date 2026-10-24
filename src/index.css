@@ -91,7 +91,9 @@ button {
   touch-action: manipulation; /* removes the 300ms tap delay and double-tap zoom on buttons */
 }
 
-/* Mouse / trackpad only (never touch): snowflake cursor, glowing sparkle over clickable things */
+/* Mouse / trackpad only (never touch): a snowflake cursor everywhere.
+   Over clickable things CursorFlake.jsx hides the native cursor and shows a spinning snowflake that sheds
+   particles (the html[data-flake-hover] flag is set by that component only while the flake is showing, so without it they keep a normal pointer). */
 @media (hover: hover) and (pointer: fine) {
   html {
     cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%230f1726' stroke-width='4.6' stroke-opacity='0.6' fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(60 16 16)'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(120 16 16)'/></g><g stroke='%23fff8e6' stroke-width='2.2' stroke-opacity='1' fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(60 16 16)'/><path d='M16 3.5V28.5M13 6.6L16 9.6L19 6.6M13 25.4L16 22.4L19 25.4' transform='rotate(120 16 16)'/></g><circle cx='16' cy='16' r='2.2' fill='%23fff8e6'/></svg>") 16 16, auto;
@@ -102,7 +104,10 @@ button {
   summary,
   label[for],
   select {
-    cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 2.5Q17.4 14.6 29.5 16Q17.4 17.4 16 29.5Q14.6 17.4 2.5 16Q14.6 14.6 16 2.5Z' fill='%23ffd27a' stroke='%230f1726' stroke-opacity='0.7' stroke-width='1.8' stroke-linejoin='round'/><circle cx='16' cy='16' r='2' fill='%23fffdf4'/></svg>") 16 16, pointer;
+    cursor: pointer;
+  }
+  html[data-flake-hover] :is(a[href], button:not(:disabled), [role="button"], summary, label[for], select) {
+    cursor: none;
   }
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   textarea {
@@ -111,6 +116,83 @@ button {
   button:disabled,
   [aria-disabled="true"] {
     cursor: not-allowed;
+  }
+}
+
+/* The hover snowflake. Position lives on a separate wrapper (CursorFlake.jsx); this element only fades and scales,
+   and its child only spins, so each animation has one job and stays on the GPU compositor. */
+.cursor-flake {
+  opacity: 0;
+  scale: 1;
+  transition: opacity 0.12s ease, scale 0.18s ease;
+}
+/* Appears instantly (no fade-in) so it replaces the static snowflake cursor on the spot, then grows a touch */
+.cursor-flake[data-show="1"] {
+  opacity: 1;
+  scale: 1.15;
+  transition: opacity 0s, scale 0.18s ease;
+}
+.cursor-flake[data-press="1"] {
+  scale: 0.9;
+}
+.cursor-flake-spin {
+  animation: flake-spin 4s linear infinite;
+}
+@keyframes flake-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor-flake-spin {
+    animation: none;
+  }
+}
+
+/* ---- Day / night ---- */
+/* The switch is a View Transition: the browser snapshots the old page, the new page is revealed through a circle
+   that ThemeProvider grows out of the sun/moon. Default fades are off so only that reveal is visible. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* Sun: slow turn of its rays. Clouds: drift across (their own layers, so both run on the GPU compositor). */
+.sun-spin {
+  animation: sun-spin 120s linear infinite;
+}
+@keyframes sun-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.cloud {
+  transform: translateX(var(--cx, 20vw));
+  will-change: transform;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cloud {
+    animation: cloud-drift var(--dur, 180s) linear var(--delay, 0s) infinite;
+  }
+}
+@keyframes cloud-drift {
+  from {
+    transform: translateX(-30vw);
+  }
+  to {
+    transform: translateX(110vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sun-spin {
+    animation: none;
   }
 }
 
@@ -144,6 +226,9 @@ html[data-perf="0"] * {
 /* Landing title: soft shadow for legibility. It is switched off while the letters are still outlines
    (the shadow would show through the empty glyphs) and fades in when the fill animation ends. */
 .hero-title {
+  /* Permanent thin outline: it adds a little weight. It used to exist only during the fill animation,
+     so the title looked bolder while dropping in and lighter once settled. Now it is always there. */
+  -webkit-text-stroke: max(1px, 0.011em) var(--c-ink);
   text-shadow: 0 2px 24px color-mix(in srgb, var(--c-canvas) 70%, transparent);
   transition: text-shadow 0.6s ease;
 }

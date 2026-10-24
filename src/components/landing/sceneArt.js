@@ -81,48 +81,19 @@ export function pinesPath(items) {
 // ---- Shapes -------------------------------------------------------------------------------
 
 const FAR_POINTS = [
-  [-700, 195],
-  [-450, 165],
-  [-200, 190],
-  [60, 150],
-  [320, 185],
-  [580, 160],
-  [840, 192],
-  [1100, 158],
-  [1360, 188],
-  [1700, 170],
+  [-700, 195], [-450, 165], [-200, 190], [60, 150], [320, 185],
+  [580, 160], [840, 192], [1100, 158], [1360, 188], [1700, 170],
 ];
 const MID_POINTS = [
-  [-700, 258],
-  [-420, 244],
-  [-150, 256],
-  [120, 240],
-  [380, 252],
-  [620, 242],
-  [880, 255],
-  [1150, 241],
-  [1420, 254],
-  [1700, 246],
+  [-700, 258], [-420, 244], [-150, 256], [120, 240], [380, 252],
+  [620, 242], [880, 255], [1150, 241], [1420, 254], [1700, 246],
 ];
 const NEAR_POINTS = [
-  [-700, 330],
-  [-400, 318],
-  [-100, 326],
-  [250, 312],
-  [500, 298],
-  [760, 314],
-  [1100, 326],
-  [1400, 318],
-  [1700, 332],
+  [-700, 330], [-400, 318], [-100, 326], [250, 312], [500, 298],
+  [760, 314], [1100, 326], [1400, 318], [1700, 332],
 ];
 const DRIFT_POINTS = [
-  [-700, 404],
-  [-300, 393],
-  [100, 401],
-  [500, 390],
-  [900, 402],
-  [1300, 393],
-  [1700, 405],
+  [-700, 404], [-300, 393], [100, 401], [500, 390], [900, 402], [1300, 393], [1700, 405],
 ];
 
 export const FAR_PATH = hillPath(FAR_POINTS);
@@ -137,8 +108,7 @@ export const MID_PINES_PATH = (() => {
   let x = X0;
   while (x < X1) {
     const h = 46 + rng() * 44;
-    if (Math.abs(x - 500) > 95)
-      trees.push({ x, h, base: yAt(MID_POINTS, x) + 10 });
+    if (Math.abs(x - 500) > 95) trees.push({ x, h, base: yAt(MID_POINTS, x) + 10 });
     x += 30 + rng() * 26;
   }
   return pinesPath(trees);
@@ -147,34 +117,41 @@ export const MID_PINES_PATH = (() => {
 // Big dark pines framing the cottage (the outer ones only show on wide screens)
 export const FORE_PINES_PATH = pinesPath(
   [
-    { x: -120, h: 270 },
-    { x: 150, h: 215 },
-    { x: 318, h: 175 },
-    { x: 690, h: 150 },
-    { x: 858, h: 205 },
-    { x: 1125, h: 265 },
-  ].map((t) => ({ ...t, base: 412 })),
+    { x: -120, h: 270 }, { x: 150, h: 215 }, { x: 318, h: 175 },
+    { x: 690, h: 150 }, { x: 858, h: 205 }, { x: 1125, h: 265 },
+  ].map((t) => ({ ...t, base: 412 }))
 );
 
-// Stars use percentages of the screen, so they spread over any aspect ratio
+// Stars use percentages of their layer (the top 60% of the screen), so they spread over any aspect ratio
 export const STARS = (() => {
   const rng = mulberry32(5);
   return Array.from({ length: 38 }, () => ({
     x: r1(rng() * 100),
-    y: r1(rng() * 56),
+    y: r1(rng() * 93), // percent of the stars layer, which covers the top 60% of the screen
     r: r1(0.6 + rng() * 1.1),
     o: r1(0.4 + rng() * 0.5),
   }));
 })();
 
+// ---- Sun and moon ----------------------------------------------------------------------------
+// The moon (night) and the sun (day) share one spot: 84% across, 12% down. The tap target for the day/night toggle
+// (SkyToggle.jsx) uses the same numbers.
+export const CELESTIAL = { x: "84%", y: "12%" };
+
+// 16 tapered rays, alternating long and short, around the sun (viewBox -110..110)
+export const SUN_RAYS_PATH = Array.from({ length: 16 }, (_, i) => {
+  const len = i % 2 === 0 ? 84 : 66;
+  const a = (i * Math.PI * 2) / 16;
+  const [ux, uy] = [Math.sin(a), -Math.cos(a)];
+  const [px, py] = [-uy, ux];
+  const p = (r, w) => `${r1(ux * r + px * w)} ${r1(uy * r + py * w)}`;
+  return `M ${p(42, -5.5)} L ${p(len, 0)} L ${p(42, 5.5)} Z`;
+}).join(" ");
+
 // ---- Colors -------------------------------------------------------------------------------
 // Everything derives from the palette tokens, so all 7 palettes work. Depth: far = hazy, near = bright snow.
 
-const V = {
-  canvas: "var(--c-canvas)",
-  ink: "var(--c-ink)",
-  snow: "var(--c-snow)",
-};
+const V = { canvas: "var(--c-canvas)", ink: "var(--c-ink)", snow: "var(--c-snow)" };
 const mix = (a, pct, b) => `color-mix(in oklab, ${a} ${pct}%, ${b})`;
 
 export const TONES = {
@@ -196,7 +173,7 @@ export const TONES = {
     haloOpacity: 0.5,
     showStars: true,
   },
-  // Snowy Woodland: a pale snowy dusk. No stars; silhouettes are tinted from ink (forest green).
+  // DAY (any palette in day mode): a bright snowy day. No stars; silhouettes are tinted from ink; clouds and a sun.
   light: {
     skyTop: mix(V.canvas, 78, V.ink),
     skyMid: mix(V.canvas, 88, V.ink),
@@ -212,6 +189,7 @@ export const TONES = {
     drift: mix("white", 85, V.canvas),
     smoke: mix("white", 70, V.canvas),
     moon: mix("white", 85, V.canvas),
+    cloud: mix("white", 82, V.canvas),
     haloOpacity: 0.25,
     showStars: false,
   },
