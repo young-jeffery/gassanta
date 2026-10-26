@@ -1,9 +1,12 @@
 import { useMusic } from "../audio/useMusic";
+import { useSfx } from "../audio/useSfx";
+import { sfx } from "../audio/sfx";
 import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from "./Icons";
 
-// Now-playing controls + track list.
+// Now-playing controls + track list + the sound-effects switch.
 export default function MusicPanel() {
   const { tracks, index, current, playing, error, toggle, next, prev, select } = useMusic();
+  const { muted, setMuted } = useSfx();
 
   return (
     <div>
@@ -28,6 +31,30 @@ export default function MusicPanel() {
             <NextIcon />
           </button>
         </div>
+      </div>
+
+      {/* Sound effects: chimes and taps. Separate from the music, saved on this device. */}
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-ink/5 p-4">
+        <div className="min-w-0">
+          <p className="font-display text-base font-extrabold text-ink">Sound effects</p>
+          <p className="text-xs text-muted">Chimes and taps when you play with the scene</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!muted}
+          aria-label="Sound effects"
+          onClick={() => {
+            const turningOn = muted;
+            setMuted(!muted);
+            if (turningOn) sfx.preview();
+          }}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${muted ? "bg-ink/20" : "bg-primary"}`}
+        >
+          <span
+            className={`absolute left-1 top-1 h-5 w-5 rounded-full transition-transform ${muted ? "bg-ink/70" : "translate-x-5 bg-on-primary"}`}
+          />
+        </button>
       </div>
 
       {error && (

@@ -236,3 +236,212 @@ html[data-perf="0"] * {
   text-shadow: none;
   transition: none;
 }
+
+/* ---- Landing buttons (HeroContent.jsx + lib/useButtonFx.js) ----
+   JS (GSAP) moves/squashes the wrapper div around each button (magnet, lift, press) and tells the drop where to start.
+   Everything here is CSS and uses only transform/opacity, so it stays on the GPU compositor. Hover rules sit inside
+   (hover: hover) so a tap on a phone never leaves a button stuck in its hover look. */
+.cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Primary: plain accent border; on hover a drop of the contrasting color (on-primary) grows from the pointer and fills
+   the button, and the label flips to the primary color (on-primary/primary contrast is checked for every palette). */
+.cta-primary {
+  border: 2px solid color-mix(in srgb, var(--c-accent) 80%, transparent);
+  background: var(--c-primary);
+  transition: color 0.3s ease 0.1s;
+}
+.cta-primary[data-fill="1"] {
+  color: var(--c-primary);
+}
+/* The drop is a big circle (diameter set by JS to cover the button from any entry point) that scales from 0 to 1.
+   Position (--dx/--dy) and --ds are CSS variables written by useButtonFx; the transition animates the result.
+   z-index -1 inside the button's own stacking context: above its background, below its text. */
+.cta-drop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  width: var(--dd, 0px);
+  height: var(--dd, 0px);
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--c-on-primary);
+  transform: translate(calc(var(--dx, 0px) - var(--dd, 0px) / 2), calc(var(--dy, 0px) - var(--dd, 0px) / 2)) scale(var(--ds, 0));
+  transition: transform 0.7s cubic-bezier(0.22, 0.9, 0.3, 1);
+  will-change: transform;
+}
+
+/* Idle shimmer: a soft diagonal highlight crossing the button every few seconds */
+.cta-shimmer,
+.cta-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.34), transparent);
+  z-index: 1;
+}
+.cta-shimmer {
+  transform: translateX(-160%) skewX(-20deg);
+  animation: cta-shimmer 5.5s ease-in-out 3.5s infinite;
+}
+@keyframes cta-shimmer {
+  0% { transform: translateX(-160%) skewX(-20deg); }
+  30%, 100% { transform: translateX(460%) skewX(-20deg); }
+}
+/* Hover sheen: one quicker sweep, driven by a transition */
+.cta-sheen {
+  transform: translateX(-160%) skewX(-20deg);
+  transition: transform 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (hover: hover) {
+  .cta:hover .cta-sheen {
+    transform: translateX(460%) skewX(-20deg);
+  }
+}
+
+/* Soft warm glow behind the primary button (a gradient, not a blurred shadow: cheap on phones) */
+.cta-glow {
+  position: absolute;
+  inset: -0.9rem;
+  z-index: -10;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c-accent) 50%, transparent), transparent);
+  animation: cta-glow 3.2s ease-in-out infinite alternate;
+}
+@keyframes cta-glow {
+  from { opacity: 0.3; transform: scale(0.96); }
+  to { opacity: 0.75; transform: scale(1.05); }
+}
+
+/* The music note turns into equalizer bars on hover / press / keyboard focus */
+.cta-note {
+  position: relative;
+  display: inline-block;
+  width: 1.1em;
+  height: 1em;
+  vertical-align: -0.14em;
+}
+.cta-note-glyph,
+.cta-eq {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease;
+}
+.cta-note-glyph {
+  display: grid;
+  place-items: center;
+}
+.cta-eq {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.1em 0;
+  opacity: 0;
+}
+.cta-eq i {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: 50% 100%;
+  transform: scaleY(0.3);
+  animation: cta-eq 0.7s ease-in-out infinite alternate paused;
+}
+.cta-eq i:nth-child(2) { animation-duration: 0.55s; animation-delay: -0.2s; }
+.cta-eq i:nth-child(3) { animation-duration: 0.85s; animation-delay: -0.4s; }
+@keyframes cta-eq {
+  from { transform: scaleY(0.25); }
+  to { transform: scaleY(1); }
+}
+.cta:active .cta-note-glyph,
+.cta:focus-visible .cta-note-glyph {
+  opacity: 0;
+}
+.cta:active .cta-eq,
+.cta:focus-visible .cta-eq {
+  opacity: 1;
+}
+.cta:active .cta-eq i,
+.cta:focus-visible .cta-eq i {
+  animation-play-state: running;
+}
+@media (hover: hover) {
+  .cta:hover .cta-note-glyph {
+    opacity: 0;
+  }
+  .cta:hover .cta-eq {
+    opacity: 1;
+  }
+  .cta:hover .cta-eq i {
+    animation-play-state: running;
+  }
+}
+
+/* Secondary: stitched ribbon outline; a tinted fill sweeps in from the left on hover / press */
+.cta-secondary {
+  border: 2px dashed color-mix(in srgb, var(--c-accent) 75%, transparent);
+}
+.cta-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--c-accent) 24%, transparent);
+  transform: scaleX(0);
+  transform-origin: 0% 50%;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cta:active .cta-fill {
+  transform: scaleX(1);
+}
+@media (hover: hover) {
+  .cta:hover .cta-fill {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-shimmer,
+  .cta-glow,
+  .cta-eq i {
+    animation: none;
+  }
+  .cta-sheen,
+  .cta-fill,
+  .cta-drop {
+    transition: none;
+  }
+  .cta-eq i {
+    transform: scaleY(0.6);
+  }
+  /* no JS press squash in reduced motion, so give a plain CSS press instead */
+  .cta:active {
+    scale: 0.97;
+  }
+}
+
+/* ---- Santa's sleigh (landing/Santa.jsx, useSanta.js): gentle bobbing while he flies ---- */
+.santa-bob {
+  transform-origin: 50% 60%;
+  will-change: transform;
+  animation: santa-bob 2.4s ease-in-out infinite alternate;
+}
+@keyframes santa-bob {
+  from { transform: translateY(2px) rotate(-1.5deg); }
+  to { transform: translateY(-6px) rotate(1.5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .santa-bob {
+    animation: none;
+  }
+}
