@@ -9,11 +9,13 @@ import { useLandingTimeline } from "../components/landing/useLandingTimeline";
 import { useDayNightScene } from "../components/landing/useDayNightScene";
 import { useTapReactions } from "../components/landing/useTapReactions";
 import { useSanta } from "../components/landing/useSanta";
+import { useParallax } from "../lib/useParallax";
+import { playBlizzard } from "../lib/blizzard";
 import { useMusic } from "../audio/useMusic";
 
 // Landing page = backdrop scene + fairy lights + hero text/buttons, animated by useLandingTimeline.
 // The sun/moon doubles as the day/night switch (SkyToggle). Tapping the scene plays little reactions + sounds
-// (useTapReactions). Santa flies by every 30-40s (useSanta). Next: parallax (2.4), snow storm + wind sound + page transition (2.5).
+// (useTapReactions). Santa flies by every 30-40s (useSanta). Parallax: lib/useParallax.js. Entering = blizzard transition (lib/blizzard.js). Next: Stage 3.
 export default function Landing() {
   const navigate = useNavigate();
   const { play } = useMusic();
@@ -32,12 +34,16 @@ export default function Landing() {
   useLandingTimeline();
   useTapReactions();
   useSanta();
+  useParallax(); // layers slide at different speeds with the pointer/finger, and drift when idle
 
+  // Both buttons: a snow storm builds, a whiteout sweeps over, /register loads underneath, the whiteout melts away
+  // (lib/blizzard.js). "With music" starts the music the moment it's pressed, as the snow starts to blow.
   const enterWithMusic = () => {
-    play();
-    navigate("/register");
+    if (playBlizzard(() => navigate("/register"))) play();
   };
-  const enterWithoutMusic = () => navigate("/register");
+  const enterWithoutMusic = () => {
+    playBlizzard(() => navigate("/register"));
+  };
 
   return (
     <>

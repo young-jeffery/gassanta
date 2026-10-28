@@ -55,18 +55,14 @@ html {
   background-color: var(--c-canvas);
   -webkit-text-size-adjust: 100%;
   /*
-    Always reserve room for the scrollbar. A scrollbar appearing or disappearing (page-enter animation,
-    opening a sheet, a long page) can then never shift the layout sideways.
-    Has no effect on phones / overlay scrollbars.
+    No visible page scrollbar on any page (scrolling by wheel, touch and keyboard still works). A visible scrollbar
+    on desktop takes ~15px: showing/hiding it shifted the layout, and reserving its room with `scrollbar-gutter:
+    stable` left an empty strip at the right edge (the glow and the floating buttons stopped short of the edge
+    after leaving the landing page, which had the scrollbar off). Hidden everywhere = same edges on every page.
   */
-  scrollbar-gutter: stable;
-}
-
-/* Single-screen pages (the landing page) switch the scrollbar off entirely: nothing to reserve, nothing to shift. */
-html[data-no-scrollbar] {
   scrollbar-width: none;
 }
-html[data-no-scrollbar]::-webkit-scrollbar {
+html::-webkit-scrollbar {
   display: none;
 }
 
@@ -444,4 +440,9 @@ html[data-perf="0"] * {
   .santa-bob {
     animation: none;
   }
+}
+
+/* ---- Blizzard transition (lib/blizzard.js): the snow rushes across the page text too ---- */
+html[data-storm] .snow-layer {
+  z-index: 12;
 }

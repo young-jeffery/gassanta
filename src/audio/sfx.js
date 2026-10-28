@@ -145,7 +145,111 @@ function bell(freq, gain = 0.5, delay = 0) {
 
 const note = (i) => PENTA[((Math.round(i) % PENTA.length) + PENTA.length) % PENTA.length];
 
+// Shared noise buffer (also used by noise() above)
+function getNoise() {
+  if (!noiseBuf) {
+    const len = ctx.sampleRate;
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuf;
+}
+
+// Blizzard wind: looping noise through three paths (a moving band for the body, a low rumble, a faint whistle),
+// with slow oscillators making it gust. Level 0..1 is set with windLevel().
+let wind = null;
+function loopNoise() {
+  const src = ctx.createBufferSource();
+  src.buffer = getNoise();
+  src.loop = true;
+  return src;
+}
+
 export const sfx = {
+  windStart() {
+    if (muted || wind) return;
+    const c = ensure();
+    if (!c || c.state !== "running") return;
+    const t = c.currentTime;
+    const out = c.createGain();
+    out.gain.value = 0;
+    out.connect(master);
+
+    const body = loopNoise();
+    const bodyF = c.createBiquadFilter();
+    bodyF.type = "bandpass";
+    bodyF.frequency.value = 400;
+    bodyF.Q.value = 0.7;
+    const gust = c.createGain();
+    gust.gain.value = 0.65;
+    body.connect(bodyF);
+    bodyF.connect(gust);
+    gust.connect(out);
+    const lfo = c.createOscillator();
+    lfo.frequency.value = 0.23;
+    const lfoDepth = c.createGain();
+    lfoDepth.gain.value = 0.35;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(gust.gain);
+
+    const rumble = loopNoise();
+    const rumbleF = c.createBiquadFilter();
+    rumbleF.type = "lowpass";
+    rumbleF.frequency.value = 180;
+    const rumbleG = c.createGain();
+    rumbleG.gain.value = 0.5;
+    rumble.connect(rumbleF);
+    rumbleF.connect(rumbleG);
+    rumbleG.connect(out);
+
+    const whistle = loopNoise();
+    const whistleF = c.createBiquadFilter();
+    whistleF.type = "bandpass";
+    whistleF.frequency.value = 1100;
+    whistleF.Q.value = 14;
+    const whistleG = c.createGain();
+    whistleG.gain.value = 0.05;
+    whistle.connect(whistleF);
+    whistleF.connect(whistleG);
+    whistleG.connect(out);
+    const lfo2 = c.createOscillator();
+    lfo2.frequency.value = 0.17;
+    const lfo2Depth = c.createGain();
+    lfo2Depth.gain.value = 350;
+    lfo2.connect(lfo2Depth);
+    lfo2Depth.connect(whistleF.frequency);
+
+    const nodes = [body, rumble, whistle, lfo, lfo2];
+    body.start(t, Math.random() * 0.5);
+    rumble.start(t, Math.random() * 0.5);
+    whistle.start(t, Math.random() * 0.5);
+    lfo.start(t);
+    lfo2.start(t);
+    wind = { out, bodyF, nodes };
+  },
+  windLevel(v, seconds = 0.5) {
+    if (!wind || !ctx) return;
+    const t = ctx.currentTime;
+    wind.out.gain.setTargetAtTime(v * 0.9, t, seconds / 3);
+    wind.bodyF.frequency.setTargetAtTime(350 + v * 750, t, seconds / 3);
+  },
+  windStop(seconds = 1) {
+    if (!wind || !ctx) return;
+    const w = wind;
+    wind = null;
+    w.out.gain.setTargetAtTime(0, ctx.currentTime, seconds / 3);
+    setTimeout(() => {
+      w.nodes.forEach((n) => {
+        try {
+          n.stop();
+        } catch {
+          /* already stopped */
+        }
+      });
+      w.out.disconnect();
+    }, (seconds + 0.6) * 1000);
+  },
   chime(i = 0) {
     if (!ready("chime", 50)) return;
     bell(note(i), 0.5);
