@@ -6,6 +6,13 @@ import { useButtonFx } from "../../lib/useButtonFx";
 //  - desktop (md+): left-aligned inside the Layout's 80% width, buttons under the tagline
 //  - phones in landscape (`short:`): title left, buttons right, cottage in the middle
 // data-* attributes are hooks for useLandingTimeline.js (entrance + idle) and useTapReactions.js (tap reactions).
+//
+// `edition` = { name, tag, year } of the signed-in person's group, or null (signed out): the "Curia VI / 2026 Edition"
+// label is only filled in when there is a group. While empty it still takes up its space (invisible placeholder text),
+// so nothing shifts when the name fades in. `lite` / `onToggleLite` drive the quiet "lite version" link under the buttons
+// (it is drawn in the ink colour at 40% strength, so it fades into whichever palette is active).
+
+const PLACEHOLDER = { name: "Curia", tag: "VI", year: 2026 };
 
 // Each letter is its own inline-block span so letters can be animated one by one.
 // The h1 carries an aria-label, so screen readers read the words once instead of letter by letter.
@@ -37,7 +44,9 @@ function CtaSlot({ children }) {
   );
 }
 
-export default function HeroContent({ onEnterWithMusic, onEnterQuiet }) {
+export default function HeroContent({ onEnterWithMusic, onEnterQuiet, edition = null, lite = false, onToggleLite }) {
+  const label = edition ?? PLACEHOLDER;
+
   return (
     <div
       data-hero
@@ -45,12 +54,18 @@ export default function HeroContent({ onEnterWithMusic, onEnterQuiet }) {
     >
       <header className="flex flex-col items-center gap-5 md:items-start short:items-start short:gap-1">
         <div data-hero-eyebrow className="flex flex-col items-center gap-1 md:items-start short:items-start">
-          {/* "Curia" in Fraunces, "VI" in Cinzel Black: heavier, larger, tucked right against it */}
-          <p className="font-display text-3xl font-semibold leading-none text-ink md:text-4xl">
-            Curia
-            <span className="ml-1 font-roman text-[1.5em] font-black leading-none">VI</span>
-          </p>
-          <p className="font-display text-base font-semibold text-ink/85 md:text-xl">2026 Edition</p>
+          {/* The group's name fades in once we know who is signed in (a plain CSS transition, fine in lite mode too) */}
+          <div
+            aria-hidden={edition ? undefined : "true"}
+            className={`flex flex-col items-center gap-1 transition-opacity duration-700 md:items-start short:items-start ${edition ? "opacity-100" : "opacity-0"}`}
+          >
+            {/* "Curia" in Fraunces, "VI" in Cinzel Black: heavier, larger, tucked right against it */}
+            <p className="font-display text-3xl font-semibold leading-none text-ink md:text-4xl">
+              {label.name}
+              {label.tag && <span className="ml-1 font-roman text-[1.5em] font-black leading-none">{label.tag}</span>}
+            </p>
+            {label.year && <p className="font-display text-base font-semibold text-ink/85 md:text-xl">{label.year} Edition</p>}
+          </div>
         </div>
 
         {/* Striper has one weight: font-normal + font-synthesis none stop the browser faking a bold */}
@@ -68,38 +83,51 @@ export default function HeroContent({ onEnterWithMusic, onEnterQuiet }) {
         </p>
       </header>
 
-      <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4 short:flex-col short:items-end short:gap-2">
-        <CtaSlot>
-          <span aria-hidden="true" className="cta-glow" />
-          <button
-            type="button"
-            onClick={onEnterWithMusic}
-            className="cta cta-primary rounded-full px-[1.95rem] py-[0.95rem] font-display text-lg font-extrabold text-on-primary shadow-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:px-[2.45rem] md:text-xl short:px-[1.45rem] short:py-[0.7rem] short:text-base"
-          >
-            <span aria-hidden="true" className="cta-drop" />
-            <span aria-hidden="true" className="cta-shimmer" />
-            <span aria-hidden="true" className="cta-sheen" />
-            Enter with music{" "}
-            <span aria-hidden="true" className="cta-note">
-              <span className="cta-note-glyph">♪</span>
-              <span className="cta-eq">
-                <i />
-                <i />
-                <i />
+      <div className="flex flex-col items-center gap-4 md:items-start short:items-end short:gap-1">
+        <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4 short:flex-col short:items-end short:gap-2">
+          <CtaSlot>
+            <span aria-hidden="true" className="cta-glow" />
+            <button
+              type="button"
+              onClick={onEnterWithMusic}
+              className="cta cta-primary rounded-full px-[1.95rem] py-[0.95rem] font-display text-lg font-extrabold text-on-primary shadow-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:px-[2.45rem] md:text-xl short:px-[1.45rem] short:py-[0.7rem] short:text-base"
+            >
+              <span aria-hidden="true" className="cta-drop" />
+              <span aria-hidden="true" className="cta-shimmer" />
+              <span aria-hidden="true" className="cta-sheen" />
+              Enter with music{" "}
+              <span aria-hidden="true" className="cta-note">
+                <span className="cta-note-glyph">♪</span>
+                <span className="cta-eq">
+                  <i />
+                  <i />
+                  <i />
+                </span>
               </span>
-            </span>
-          </button>
-        </CtaSlot>
-        <CtaSlot>
+            </button>
+          </CtaSlot>
+          <CtaSlot>
+            <button
+              type="button"
+              onClick={onEnterQuiet}
+              className="cta cta-secondary rounded-full bg-surface/90 px-6 py-2.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:px-8 md:py-3.5 md:text-base"
+            >
+              <span aria-hidden="true" className="cta-fill" />
+              Enter without music
+            </button>
+          </CtaSlot>
+        </div>
+
+        {/* Lite mode switch: a quiet link, for people on weak phones (also in the dock, and via ?lite=1) */}
+        <div data-hero-cta>
           <button
             type="button"
-            onClick={onEnterQuiet}
-            className="cta cta-secondary rounded-full bg-surface/90 px-6 py-2.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent md:px-8 md:py-3.5 md:text-base"
+            onClick={onToggleLite}
+            className="rounded-full px-3 py-1.5 text-xs font-semibold text-ink/40 transition-colors hover:text-ink/80 focus-visible:text-ink/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <span aria-hidden="true" className="cta-fill" />
-            Enter without music
+            {lite ? "Switch to the full animated version" : "Phone slow? Try the lite version"}
           </button>
-        </CtaSlot>
+        </div>
       </div>
     </div>
   );

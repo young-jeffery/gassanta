@@ -1,0 +1,43 @@
+/* Lite mode (see lib/lite.js): everything here only applies while <html data-lite> is set. */
+
+/* The landing scene's own CSS animations: the turning sun, the drifting clouds (they stay where --cx puts them),
+   and anything else inside the scene */
+html[data-lite] .cloud,
+html[data-lite] .sun-spin,
+html[data-lite] [data-scene] * {
+  animation: none !important;
+}
+
+/* Phones: the lowest cloud sits toward the left edge (the sun and the first cloud take the right and the top) */
+@media (max-width: 767px) {
+  html[data-lite] .cloud:nth-child(3) {
+    transform: translateX(2vw) !important;
+  }
+}
+
+/* No GPU layer per scenery piece: the scene is drawn once and left alone */
+html[data-lite] [data-layer],
+html[data-lite] [data-moon],
+html[data-lite] [data-sun] {
+  will-change: auto !important;
+}
+
+/* No shooting star */
+html[data-lite] [data-shooting] {
+  display: none !important;
+}
+
+/* The page colours swap instantly when day/night or the palette changes (index.css fades the body background) */
+html[data-lite] body {
+  transition: none !important;
+}
+html[data-lite]::view-transition-group(*),
+html[data-lite]::view-transition-old(*),
+html[data-lite]::view-transition-new(*) {
+  animation: none !important;
+}
+
+/* Small status dots don't pulse either */
+html[data-lite] .animate-pulse {
+  animation: none !important;
+}

@@ -18,6 +18,10 @@ import { getStorm } from "./storm";
 // opposite to the pointer. Reduced motion: does nothing. Runs in one ticker callback with quickSetters (no tween
 // objects); on 100Hz+ screens it updates at a 60fps cap like the canvases. No performance tier removes it.
 // During the blizzard transition (lib/storm.js) every layer also trembles, harder for nearer layers.
+//
+// PARALLAX_AMOUNT scales everything below. 1 was the original feel (too much on desktop); 0.3 is a minute drift:
+// the nearest layer moves about 7px on a phone and 16px on a wide screen at most. Set it to 0 to switch parallax off.
+const PARALLAX_AMOUNT = 0.3;
 const IDLE_MS = 2000;
 const SMOOTH_S = 0.35; // smoothing time constant
 const MIN_STEP = 0.02; // px: skip writes smaller than this
@@ -44,7 +48,7 @@ const drift = (ms) => {
 
 export function useParallax() {
   useEffect(() => {
-    if (prefersReducedMotion()) return undefined;
+    if (PARALLAX_AMOUNT === 0 || prefersReducedMotion()) return undefined;
     const scene = document.querySelector("[data-scene]");
     if (!scene) return undefined;
 
@@ -93,8 +97,8 @@ export function useParallax() {
       current += (target - current) * (1 - Math.exp(-dt / SMOOTH_S));
       const storm = getStorm();
       for (const item of items) {
-        const shake = storm > 0.05 ? (Math.random() * 2 - 1) * storm * item.depth * 0.45 : 0;
-        const x = -current * item.depth * k + shake;
+        const shake = storm > 0.05 ? (Math.random() * 2 - 1) * storm * item.depth * 0.45 : 0; // the storm shake keeps its full strength
+        const x = -current * item.depth * k * PARALLAX_AMOUNT + shake;
         if (Math.abs(x - item.last) < MIN_STEP) continue;
         item.last = x;
         item.set(x);

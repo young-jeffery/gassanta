@@ -2,18 +2,26 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
+import { isLite } from "../lib/lite";
+import { useLite } from "../lib/useLite";
+import { sfx } from "../audio/sfx";
+import { useGlobalSfx } from "../audio/useGlobalSfx";
 import SnowCanvas from "./SnowCanvas";
 import DustTrail from "./DustTrail";
 import CursorFlake from "./CursorFlake";
 import PerfHud from "./PerfHud";
+import ChristmasDoodles from "./ChristmasDoodles";
 import Dock from "./Dock";
 import Blizzard from "./Blizzard";
 import { consumeArrival } from "../lib/blizzard";
 
 // Shell around every page: soft glow background, snow, page-enter animation, dust trail, and the dock.
 //
+// Lite mode (lib/lite.js) removes everything that animates: snow, dust trail, custom cursor, blizzard overlay and
+// the page-enter fade. Sounds (useGlobalSfx + the page-change sound below) work in both modes.
+//
 // Stacking order (low to high):
-//   z-0   glow background
+//   z-0   glow background, Christmas doodle pattern (non-landing pages)
 //   z-1   landing scene (portaled to <body> by Scene.jsx)
 //   z-5   snow  <- wrapper below; it sits above the scene but below the page content (z-12 during a blizzard, see index.css)
 //   z-10  page content
@@ -30,18 +38,27 @@ import { consumeArrival } from "../lib/blizzard";
 // when their bars show or hide. With svh the page can never be taller than the visible area.
 export default function Layout() {
   const { pathname } = useLocation();
+  const { lite } = useLite();
   const mainRef = useRef(null);
+  const firstLoad = useRef(true);
   const onLanding = pathname === "/";
 
-  // Fade/slide each page in when the route changes. Not after the landing page's blizzard: the whiteout already
-  // covers the screen while the new page loads underneath and melts away to reveal it, so no extra fade.
+  useGlobalSfx();
+
+  // On every route change: a soft "door" sound (not on the first load, and not after the landing page's blizzard, which
+  // has its own sounds), then fade/slide the page in. The fade is skipped after the blizzard (the whiteout already
+  // covers the screen while the new page loads underneath and melts away to reveal it), and in lite mode.
   useGSAP(
     () => {
-      if (consumeArrival()) {
+      const arrival = consumeArrival();
+      const initial = firstLoad.current;
+      firstLoad.current = false;
+      if (!initial && !arrival) sfx.door();
+      if (arrival) {
         gsap.set(mainRef.current, { opacity: 1, y: 0 });
         return;
       }
-      if (prefersReducedMotion()) return;
+      if (prefersReducedMotion() || isLite()) return;
       gsap.fromTo(mainRef.current, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" });
     },
     { dependencies: [pathname] }
@@ -68,19 +85,24 @@ export default function Layout() {
         />
       )}
 
-      {/* The wrapper creates the z-5 layer; the canvas inside stays fixed and full-screen */}
-      <div className="snow-layer relative z-5">
-        <SnowCanvas />
-      </div>
+      {/* Christmas doodle pattern behind every page except the landing page (which has its own scene). Static. */}
+      {!onLanding && <ChristmasDoodles />}
+
+      {/* The wrapper creates the z-5 layer; the canvas inside stays fixed and full-screen. No snow at all in lite mode. */}
+      {!lite && (
+        <div className="snow-layer relative z-5">
+          <SnowCanvas />
+        </div>
+      )}
 
       {/* px-page = 1.25rem, or the notch inset if larger (matters in landscape) */}
       <main ref={mainRef} className="pt-safe pb-safe px-page relative z-10 mx-auto flex min-h-svh w-full flex-col md:w-4/5 md:px-0">
         <Outlet />
       </main>
 
-      <DustTrail />
-      <Blizzard />
-      <CursorFlake />
+      {!lite && <DustTrail />}
+      {!lite && <Blizzard />}
+      {!lite && <CursorFlake />}
       <PerfHud />
       <Dock />
     </div>

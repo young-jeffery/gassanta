@@ -5,6 +5,7 @@ import { contrastRatio } from "./contrast";
 import { resolvePalette } from "./variants";
 import { ThemeContext } from "./themeContext";
 import { prefersReducedMotion } from "../lib/motion";
+import { isLite } from "../lib/lite";
 
 const PALETTE_KEY = "ss-palette";
 const MODE_KEY = "ss-mode"; // "auto" (follow the device) | "day" | "night"
@@ -98,12 +99,12 @@ export default function ThemeProvider({ children }) {
 
   // Switch day/night. With View Transitions (Chrome, Edge, Safari 18+, newer Firefox) the new colors are revealed
   // by a circle growing out of the sun/moon (or the button you pressed); the GPU does the crossfade, so it costs
-  // nothing on the page. Without browser support, or with reduced motion, it swaps instantly. It is NOT tied to the
-  // performance tier: the reveal is a one-off compositor animation, and skipping it on "weak" phones made the
-  // switch look random.
+  // nothing on the page. Without browser support, or with reduced motion, or in LITE MODE, it swaps instantly.
+  // It is NOT tied to the performance tier: the reveal is a one-off compositor animation, and skipping it on "weak"
+  // phones made the switch look random.
   const setMode = useCallback((next, origin) => {
     const apply = () => flushSync(() => setModeSetting(next));
-    if (typeof document.startViewTransition !== "function" || prefersReducedMotion()) {
+    if (typeof document.startViewTransition !== "function" || prefersReducedMotion() || isLite()) {
       apply();
       return;
     }

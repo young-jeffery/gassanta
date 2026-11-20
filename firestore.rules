@@ -1,0 +1,225 @@
+rules_version = '2';
+
+// Secret Santa: Firestore security rules (Stage 3).
+// Paste this whole file into Firebase Console > Firestore Database > Rules, then Publish.
+//
+// Anything not matched below is DENIED (this covers picks/ and results/, which Stage 5 and 6 will add).
+// The Admin SDK (seed script now, Netlify Functions later) bypasses these rules.
+//
+// Group id = the group's URL slug, e.g. groups/curia-vi, so ids are first-come-first-served by construction.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function groupRef(gid) {
+      return /databases/$(database)/documents/groups/$(gid);
+    }
+    function memberRef(gid, uid) {
+      return /databases/$(database)/documents/groups/$(gid)/members/$(uid);
+    }
+    function privateRef(gid, uid) {
+      return /databases/$(database)/documents/groups/$(gid)/memberPrivate/$(uid);
+    }
+    function nicknameRef(gid, key) {
+      return /databases/$(database)/documents/groups/$(gid)/nicknames/$(key);
+    }
+    function resultRef(gid, uid) {
+      return /databases/$(database)/documents/groups/$(gid)/results/$(uid);
+    }
+    function joinCodeRef(code) {
+      return /databases/$(database)/documents/joinCodes/$(code);
+    }
+
+    function isMember(gid) {
+      return signedIn() && exists(memberRef(gid, request.auth.uid));
+    }
+    function roleOf(gid) {
+      return get(memberRef(gid, request.auth.uid)).data.role;
+    }
+    function isAdmin(gid) {
+      return isMember(gid) && roleOf(gid) in ['owner', 'admin'];
+    }
+    function isOwner(gid) {
+      return isMember(gid) && roleOf(gid) == 'owner';
+    }
+    function stageOf(gid) {
+      return get(groupRef(gid)).data.stage;
+    }
+
+    // ---------------------------------------------------------------- users/{uid}
+    // Private account record. Only its owner can read or touch it.
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'createdAt', 'lastGroup', 'groups'])
+        && request.resource.data.keys().hasAll(['email', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.get('lastGroup', '') is string
+        && request.resource.data.get('groups', []) is list
+        && request.resource.data.get('groups', []).size() <= 20;
+
+      // Afterwards a user may only change which group they used last and their list of group ids. Both are just
+      // bookmarks: the real membership check always happens on groups/{gid}/members/{uid}.
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastGroup', 'groups'])
+        && request.resource.data.get('lastGroup', '') is string
+        && request.resource.data.get('groups', []) is list
+        && request.resource.data.get('groups', []).size() <= 20;
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------- joinCodes/{code}
+    // One document per invite code. Anyone can look a code up by its exact value (needed before they have an
+    // account) but nobody can list them, so codes can't be harvested.
+    match /joinCodes/{code} {
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if signedIn()
+        && isAdmin(request.resource.data.gid)
+        && request.resource.data.keys().hasOnly(['gid', 'active', 'createdAt']);
+      allow update: if signedIn()
+        && isAdmin(resource.data.gid)
+        && request.resource.data.gid == resource.data.gid;
+      allow delete: if signedIn() && isAdmin(resource.data.gid);
+    }
+
+    // ---------------------------------------------------------------- groups/{gid}
+    match /groups/{gid} {
+      // Public on purpose: name, tag, year, stage, deadlines. The register page needs them before sign-in.
+      allow read: if true;
+      // Groups are created by the seed script (Stage 3) and by a Netlify Function (Stage 4), never by the browser.
+      allow create, delete: if false;
+
+      // Admins can change the stage, deadlines and display name. Nothing else (createdBy etc. is locked).
+      allow update: if isAdmin(gid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'deadlines', 'name', 'tag', 'year'])
+        && request.resource.data.stage in ['registration', 'preferences', 'awaiting_draw', 'drawn']
+        && request.resource.data.deadlines is map;
+
+      // Rules text. Members read it; admins edit it.
+      match /content/{docId} {
+        allow read: if isMember(gid);
+        allow create, update: if isAdmin(gid)
+          && request.resource.data.keys().hasOnly(['text', 'updatedAt', 'updatedBy'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 8000
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      // Public-to-members profile: nickname and role. Real names are NOT here.
+      match /members/{uid} {
+        allow read: if isMember(gid);
+
+        // Joining. Must be the person's own uid, registration must be open, the join code must belong to this group,
+        // and the nickname key, private profile and nickname reservation must be written in the same batch.
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['nickname', 'nicknameKey', 'role', 'joinedAt', 'verified', 'joinCode'])
+          && request.resource.data.keys().hasAll(['nickname', 'nicknameKey', 'role', 'joinedAt', 'verified', 'joinCode'])
+          && request.resource.data.role == 'member'
+          && request.resource.data.verified == false
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.nickname is string
+          && request.resource.data.nickname.size() >= 2
+          && request.resource.data.nickname.size() <= 60
+          && request.resource.data.nicknameKey is string
+          && request.resource.data.nicknameKey.matches('[a-z0-9]{2,60}')
+          && request.resource.data.joinCode is string
+          && request.resource.data.joinCode.matches('[A-Z0-9]{8}')
+          && stageOf(gid) == 'registration'
+          && get(joinCodeRef(request.resource.data.joinCode)).data.gid == gid
+          && get(joinCodeRef(request.resource.data.joinCode)).data.active == true
+          && existsAfter(nicknameRef(gid, request.resource.data.nicknameKey))
+          && getAfter(nicknameRef(gid, request.resource.data.nicknameKey)).data.uid == uid
+          && existsAfter(privateRef(gid, uid));
+
+        allow update: if signedIn() && (
+          // A member can only mark their own email as verified.
+          (request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified'])
+            && request.resource.data.verified == true)
+          ||
+          // The owner can promote/demote other members (never the owner).
+          (isOwner(gid)
+            && request.auth.uid != uid
+            && resource.data.role != 'owner'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+            && request.resource.data.role in ['admin', 'member'])
+        );
+
+        // Admins remove members; the owner can also remove admins.
+        allow delete: if signedIn() && (
+          (isAdmin(gid) && resource.data.role == 'member')
+          || (isOwner(gid) && resource.data.role == 'admin')
+        );
+      }
+
+      // Real names: the person themself and group admins only.
+      match /memberPrivate/{uid} {
+        allow read: if signedIn() && (request.auth.uid == uid || isAdmin(gid));
+
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['realName'])
+          && request.resource.data.realName is string
+          && request.resource.data.realName.size() >= 2
+          && request.resource.data.realName.size() <= 120
+          && existsAfter(memberRef(gid, uid));
+
+        allow update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['realName'])
+          && request.resource.data.realName is string
+          && request.resource.data.realName.size() >= 2
+          && request.resource.data.realName.size() <= 120;
+
+        allow delete: if isAdmin(gid);
+      }
+
+      // Nickname reservations (document id = nickname key). A signed-out visitor may GET one by exact key to see
+      // whether a nickname is free, but nobody can list them.
+      match /nicknames/{key} {
+        allow get: if true;
+        allow list: if false;
+
+        allow create: if signedIn()
+          && key.matches('[a-z0-9]{2,60}')
+          && request.resource.data.keys().hasOnly(['uid'])
+          && request.resource.data.uid == request.auth.uid
+          && existsAfter(memberRef(gid, request.auth.uid))
+          && getAfter(memberRef(gid, request.auth.uid)).data.nicknameKey == key;
+
+        allow delete: if isAdmin(gid);
+      }
+
+      // Wishlists. The owner reads and edits their own until the draw. After the draw, the person assigned to give
+      // them a gift (results/{gifterUid}.gifteeUid == this uid) can read it. Admins can NOT read wishlists.
+      match /wishlists/{uid} {
+        allow read: if signedIn() && (
+          request.auth.uid == uid
+          || (exists(resultRef(gid, request.auth.uid))
+              && get(resultRef(gid, request.auth.uid)).data.gifteeUid == uid)
+        );
+
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && isMember(gid)
+          && stageOf(gid) != 'drawn'
+          && request.resource.data.keys().hasOnly(['items', 'hints', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['items', 'hints', 'updatedAt'])
+          && request.resource.data.items is list
+          && request.resource.data.items.size() <= 10
+          && request.resource.data.hints is string
+          && request.resource.data.hints.size() <= 500
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if false;
+      }
+    }
+  }
+}

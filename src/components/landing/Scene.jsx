@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { gsap } from "../../lib/gsap";
 import { prefersReducedMotion } from "../../lib/motion";
+import { isLite } from "../../lib/lite";
 import { useTheme } from "../../theme/useTheme";
 import {
   CELESTIAL,
@@ -63,7 +64,8 @@ export default function Scene() {
   const [startedDay] = useState(isDay);
 
   // Day <-> night: the outgoing sun/moon sinks away, the incoming one rises (the page colors change via the
-  // View Transition in ThemeProvider; this is the celestial body's own little animation).
+  // View Transition in ThemeProvider; this is the celestial body's own little animation). In lite mode (or with
+  // reduced motion) the swap is instant.
   const previousDay = useRef(isDay);
   useLayoutEffect(() => {
     if (previousDay.current === isDay) return;
@@ -75,7 +77,7 @@ export default function Scene() {
     const incoming = isDay ? sun : moon;
     const outgoing = isDay ? moon : sun;
     gsap.killTweensOf([moon, sun]);
-    if (prefersReducedMotion()) {
+    if (prefersReducedMotion() || isLite()) {
       gsap.set(incoming, { autoAlpha: 1, y: 0, scale: 1 });
       gsap.set(outgoing, { autoAlpha: 0 });
       return;

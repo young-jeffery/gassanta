@@ -2,23 +2,35 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { gsap, useGSAP } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
+import { isLite } from "../lib/lite";
+import { useLite } from "../lib/useLite";
 import { useMusic } from "../audio/useMusic";
 import Sheet from "./Sheet";
 import MusicPanel from "./MusicPanel";
 import PalettePanel from "./PalettePanel";
 import { MusicIcon, PaletteIcon } from "./Icons";
 
-// Floating buttons (bottom-right) that open the music and palette sheets. Present on every page.
-// Rendered through a portal straight into <body>, so no parent element's transform, overflow or
+// A lightning bolt: "lite" = light and fast
+function LiteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+      <path d="M13.5 2 4.5 13.5h6L9.5 22l9-11.5h-6L13.5 2Z" />
+    </svg>
+  );
+}
+
+// Floating buttons (bottom-right), top to bottom: lite-mode switch (static, no animations; see lib/lite.js), music, palette.
+// Present on every page. Rendered through a portal straight into <body>, so no parent element's transform, overflow or
 // layout can ever shift it. Position is set inline so it doesn't depend on any other class.
 export default function Dock() {
   const [open, setOpen] = useState(null); // null | "music" | "palette"
   const { playing } = useMusic();
+  const { lite, setLite } = useLite();
   const dockRef = useRef(null);
 
   useGSAP(
     () => {
-      if (prefersReducedMotion()) return;
+      if (prefersReducedMotion() || isLite()) return;
       // fromTo with explicit end values: never reads a half-finished state
       gsap.fromTo(
         ".dock-btn",
@@ -37,8 +49,11 @@ export default function Dock() {
   }, []);
 
   // No backdrop-blur here: re-blurring the animated snow behind these buttons on every frame is costly on phones.
-  const btn =
-    "relative grid h-12 w-12 place-items-center rounded-full border border-accent/40 bg-surface/90 text-ink shadow-lg transition-[scale] active:scale-90";
+  // A button that is "in use" (lite mode on, music playing) is filled with the primary colour instead of showing a dot.
+  const btn = (active) =>
+    `relative grid h-12 w-12 place-items-center rounded-full border shadow-lg transition-[scale,background-color,color] active:scale-90 ${
+      active ? "border-accent bg-primary text-on-primary" : "border-accent/40 bg-surface/90 text-ink"
+    }`;
 
   return createPortal(
     <>
@@ -52,14 +67,18 @@ export default function Dock() {
         }}
       >
         <div className="dock-btn">
-          <button className={btn} onClick={() => setOpen("palette")} aria-label="Change colors">
-            <PaletteIcon />
+          <button className={btn(lite)} onClick={() => setLite(!lite)} aria-pressed={lite} aria-label={lite ? "Lite mode is on. Switch to the full animated version" : "Switch to lite mode (static, no animations)"}>
+            <LiteIcon />
           </button>
         </div>
         <div className="dock-btn">
-          <button className={btn} onClick={() => setOpen("music")} aria-label="Music">
+          <button className={btn(playing)} onClick={() => setOpen("music")} aria-label={playing ? "Music (playing)" : "Music"}>
             <MusicIcon />
-            {playing && <span className="absolute right-1 top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-glow" />}
+          </button>
+        </div>
+        <div className="dock-btn">
+          <button className={btn(false)} onClick={() => setOpen("palette")} aria-label="Change colors">
+            <PaletteIcon />
           </button>
         </div>
       </div>
