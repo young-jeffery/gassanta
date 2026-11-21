@@ -46,7 +46,6 @@ export default function Register() {
 
   return (
     <AuthShell
-      side="right"
       title={title}
       subtitle={subtitle}
       footer={

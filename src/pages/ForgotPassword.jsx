@@ -100,11 +100,10 @@ function ForgotForm() {
   );
 }
 
-// /forgot: the snowmen on the right, the form on the left (same as login)
+// /forgot: same frame as register and login (snowmen on the left, form on the right)
 export default function ForgotPassword() {
   return (
     <AuthShell
-      side="left"
       title="Reset your password"
       subtitle="We'll email you a link to choose a new one."
       footer={

@@ -7,7 +7,6 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import GroupComingSoon from "./pages/GroupComingSoon";
-import Home from "./pages/Home";
 import RequireAuth from "./routes/RequireAuth";
 import RedirectIfAuthed from "./routes/RedirectIfAuthed";
 import RequireGroup from "./routes/RequireGroup";
@@ -45,8 +44,6 @@ export default function App() {
           </Route>
         </Route>
 
-        {/* Stage 1 test page, kept for checking palette tokens. Removed in the 3.5 cleanup. */}
-        <Route path="foundation-test" element={<Home />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -2,7 +2,7 @@
 // It sets <html data-lite> (lite.css and a few components look at it) and lets React components subscribe (useLite.js).
 //   ?lite=1 in the URL turns it on (and remembers it), ?lite=0 turns it off: handy for sending a friend a link.
 // What lite switches off: snow, the landing scene's animations, fairy lights, Santa, parallax, the dust trail, the
-// custom cursor, the blizzard transition, page fades, the snowmen's idle life and eye-tracking. Buttons keep their
+// custom cursor, the blizzard and frost transitions (page changes get a plain quick fade instead), the snowmen's idle life and eye-tracking. Buttons keep their
 // effects, and basic CSS transitions stay.
 const KEY = "ss-lite";
 const listeners = new Set();

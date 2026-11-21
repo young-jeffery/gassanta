@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { sfx } from "../../audio/sfx";
@@ -7,12 +7,14 @@ import { MAX_HINTS, MAX_ITEM_LEN, MAX_ITEMS, sameWishlist, sanitizeWishlist } fr
 import AuthButton from "../auth/AuthButton";
 import ErrorNote from "../auth/ErrorNote";
 import Card from "./Card";
-import { HUES } from "./colors";
+import { BUBBLE_INK, CARDS } from "./colors";
+import { useCardFx } from "./useCardFx";
+import Wave from "./Wave";
 
 const inputClass =
   "w-full rounded-2xl border-2 border-accent/40 bg-canvas/40 px-4 py-2.5 text-base text-ink placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
-function Editor({ gid, uid, initial, drawn }) {
+function Editor({ gid, uid, initial }) {
   const startItems = initial.items.length > 0 ? initial.items : [""];
   const [items, setItems] = useState(startItems);
   const [hints, setHints] = useState(initial.hints);
@@ -31,7 +33,7 @@ function Editor({ gid, uid, initial, drawn }) {
 
   const onSave = async (e) => {
     e.preventDefault();
-    if (saving || drawn) return;
+    if (saving) return;
     const clean = sanitizeWishlist({ items, hints });
     setSaving(true);
     setError("");
@@ -48,26 +50,6 @@ function Editor({ gid, uid, initial, drawn }) {
       setSaving(false);
     }
   };
-
-  if (drawn) {
-    return (
-      <div className="flex flex-col gap-3 text-sm text-ink/90">
-        <p>The draw is done, so your wishlist is locked. Your gifter can see it now.</p>
-        {initial.items.length === 0 && !initial.hints ? (
-          <p className="font-bold text-muted">You didn't add anything.</p>
-        ) : (
-          <>
-            <ul className="list-disc pl-5">
-              {initial.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            {initial.hints && <p className="whitespace-pre-wrap">{initial.hints}</p>}
-          </>
-        )}
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={onSave} className="flex flex-col gap-3">
@@ -151,8 +133,66 @@ function Editor({ gid, uid, initial, drawn }) {
   );
 }
 
+const RED = "#d92d20";
+
+// After the draw the wishlist can't be edited any more, so the card turns into a wrapped present: green paper, a red
+// ribbon cross, a bow, and the wishlist written on a gift tag. Hover/tap reaction: useCardFx.js.
+function WrappedWishlist({ initial }) {
+  const ref = useRef(null);
+  useCardFx(ref, "gifts");
+  const empty = initial.items.length === 0 && !initial.hints;
+
+  return (
+    <section ref={ref} className="relative mt-5 rounded-3xl" style={{ border: `3px solid ${BUBBLE_INK}`, boxShadow: `4px 5px 0 ${BUBBLE_INK}`, background: "#1f7a47" }}>
+      <div
+        className="relative overflow-hidden rounded-[21px] px-5 pt-10 pb-12 md:px-6"
+        style={{ background: "repeating-linear-gradient(135deg, #1f7a47 0 20px, #196a3d 20px 40px)" }}
+      >
+        {/* the ribbon cross */}
+        <div aria-hidden="true" className="absolute inset-y-0 left-1/2 w-9 -translate-x-1/2" style={{ background: RED, borderLeft: `3px solid ${BUBBLE_INK}`, borderRight: `3px solid ${BUBBLE_INK}` }} />
+        <div aria-hidden="true" className="absolute inset-x-0 top-[56%] h-9 -translate-y-1/2" style={{ background: RED, borderTop: `3px solid ${BUBBLE_INK}`, borderBottom: `3px solid ${BUBBLE_INK}` }} />
+        <div data-fx aria-hidden="true" className="pointer-events-none absolute inset-0 z-20" />
+
+        {/* the gift tag */}
+        <div className="relative z-10 mx-auto max-w-sm -rotate-1 rounded-2xl bg-[#fffaf0] p-4 text-[#3b2a1a]" style={{ border: `3px solid ${BUBBLE_INK}`, boxShadow: `3px 4px 0 ${BUBBLE_INK}` }}>
+          <span aria-hidden="true" className="absolute -top-3 left-5 h-4 w-4 rounded-full bg-[#1f7a47]" style={{ border: `3px solid ${BUBBLE_INK}` }} />
+          <h2 className="flex items-center gap-2 font-display text-xl font-extrabold">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            Wrapped and sealed
+          </h2>
+          <p className="mt-1 text-sm">The draw is done, so your wishlist is locked. Your gifter can see it now.</p>
+          {empty ? (
+            <p className="mt-3 text-sm font-bold opacity-70">You didn't add anything.</p>
+          ) : (
+            <div className="mt-3 border-t-2 border-dashed border-[#3b2a1a]/40 pt-3 text-sm">
+              <ul className="list-disc space-y-0.5 pl-5">
+                {initial.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              {initial.hints && <p className="mt-2 whitespace-pre-wrap font-display italic">{initial.hints}</p>}
+            </div>
+          )}
+        </div>
+        <Wave color="#fffaf0" />
+      </div>
+
+      {/* the bow */}
+      <svg viewBox="0 0 90 56" aria-hidden="true" className="pointer-events-none absolute -top-7 left-1/2 z-10 h-14 w-24 -translate-x-1/2">
+        <path d="M45 38 C20 4 0 24 12 40 C24 46 38 42 45 38 Z" fill={RED} stroke={BUBBLE_INK} strokeWidth="3" strokeLinejoin="round" />
+        <path d="M45 38 C70 4 90 24 78 40 C66 46 52 42 45 38 Z" fill={RED} stroke={BUBBLE_INK} strokeWidth="3" strokeLinejoin="round" />
+        <path d="M20 26 C26 22 34 26 38 34 M70 26 C64 22 56 26 52 34" fill="none" stroke="#ff8a7e" strokeWidth="2.4" strokeLinecap="round" />
+        <rect x="37" y="30" width="16" height="16" rx="4" fill={RED} stroke={BUBBLE_INK} strokeWidth="3" />
+      </svg>
+    </section>
+  );
+}
+
 // The person's own wishlist. Loaded once (not live, so nothing overwrites what they are typing), then edited and saved
-// through the security rules: only their own, only until the draw.
+// through the security rules: only their own, only until the draw. After the draw it shows as a wrapped present.
 export default function WishlistCard({ gid, uid, drawn }) {
   const key = `${gid}/${uid}`;
   const [loaded, setLoaded] = useState(null); // { key, items, hints }
@@ -173,13 +213,12 @@ export default function WishlistCard({ gid, uid, drawn }) {
     };
   }, [gid, uid, key]);
 
+  const ready = loaded && loaded.key === key;
+  if (ready && drawn) return <WrappedWishlist initial={loaded} />;
+
   return (
-    <Card title="Your wishlist" hue={HUES.wishlist} scribble="list">
-      {loaded && loaded.key === key ? (
-        <Editor key={key} gid={gid} uid={uid} initial={loaded} drawn={drawn} />
-      ) : (
-        <p className="text-sm text-muted">Loading...</p>
-      )}
+    <Card title="Your wishlist" tone={CARDS.wishlist} scribble="list">
+      {ready ? <Editor key={key} gid={gid} uid={uid} initial={loaded} /> : <p className="text-sm text-muted">Loading...</p>}
     </Card>
   );
 }

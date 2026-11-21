@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import BackLink from "../BackLink";
+import TitleMark from "./TitleMark";
 import { StageContext } from "./stageContext";
 import { createGazeStore } from "./snowmen/gazeStore";
 import { ESCALATE, LINE_GAP, pickLine } from "./snowmen/lines";
@@ -8,11 +9,12 @@ import SnowmanScene from "./snowmen/SnowmanScene";
 import PeekingSnowman from "./snowmen/PeekingSnowman";
 import Bubble from "./snowmen/Bubble";
 
-// Page frame for register / join / login.
-//   Desktop (md and up): the whole page width is split in half. One half is the form card, the other is a stage with
-//     three snowmen. `side` says which half holds the form (register: "right", login: "left").
+// Page frame for register / join / login / forgot-password (and the create-group page in Stage 4).
+//   Desktop (md and up): the whole page width is split in half: the snowmen's stage on the LEFT, the form card on the
+//     right. Every page that uses this frame looks the same, on purpose.
 //   Phone: just the form, with one snowman peeking over the top edge of the card.
 //   Phone in landscape (short:): just the form, no snowmen.
+// Above the card: the Back link and the small "Secret Santa" title (TitleMark).
 // The snowmen watch the mouse, then the form field you are using; look away while a password is visible; and say
 // things (bubbles). Fields and pages talk to them through useStage() (see useStage.js).
 
@@ -38,7 +40,10 @@ function caretPoint(el) {
   return { x: r.left + Math.min(r.width - 18, 18 + typed * 8.5), y: r.top + r.height / 2 };
 }
 
-export default function AuthShell({ side = "right", title, subtitle, footer, children }) {
+// The password-reveal makes the snowmen look away from the form, which is on their right
+const AWAY_DIR = -1;
+
+export default function AuthShell({ title, subtitle, footer, children }) {
   const { status } = useAuth();
   const [gaze] = useState(createGazeStore);
   const [speech, setSpeech] = useState(null); // { id, text, who: 0 | 1 | 2 }
@@ -52,8 +57,6 @@ export default function AuthShell({ side = "right", title, subtitle, footer, chi
   const lastActivity = useRef(0);
   const wasRevealed = useRef(false);
   const timers = useRef({ hide: 0, hello: 0, idle: 0 });
-
-  const awayDir = side === "right" ? -1 : 1; // look away from the form
 
   // say(event, data, who): `who` (0-2) picks which snowman speaks; leave it out for a random one.
   const say = useCallback((event, data, who) => {
@@ -84,7 +87,7 @@ export default function AuthShell({ side = "right", title, subtitle, footer, chi
     counter.current += 1;
     setSpeech({ id: counter.current, text, who: speaker });
     window.clearTimeout(timers.current.hide);
-    timers.current.hide = window.setTimeout(() => setSpeech(null), 3400 + text.length * 70);
+    timers.current.hide = window.setTimeout(() => setSpeech(null), 3400 + text.length * 45);
   }, []);
 
   const stage = useMemo(
@@ -108,14 +111,14 @@ export default function AuthShell({ side = "right", title, subtitle, footer, chi
         if (wasRevealed.current === on) return;
         wasRevealed.current = on;
         setRevealedState(on);
-        gaze.away(on, awayDir);
+        gaze.away(on, AWAY_DIR);
         say(on ? "reveal:on" : "reveal:off");
       },
       cheer() {
         setCheerCount((n) => n + 1);
       },
     }),
-    [say, gaze, awayDir]
+    [say, gaze]
   );
 
   // The mouse (or a tap) tells the snowmen where to look (also in lite mode: it costs next to nothing)
@@ -154,32 +157,27 @@ export default function AuthShell({ side = "right", title, subtitle, footer, chi
 
   // The snowman that was poked is the one who answers (the phone's single snowman passes nothing)
   const onPoke = useCallback((who) => say("poke", undefined, who), [say]);
-  // When the form is on the left the snowmen are on the right and mirrored (see SnowmanScene), so are their bubbles
-  const mirror = side === "left";
-  const spot = speech ? { left: mirror ? `${100 - parseFloat(SPOTS[speech.who].left)}%` : SPOTS[speech.who].left, top: SPOTS[speech.who].top } : null;
+  const spot = speech ? SPOTS[speech.who] : null;
   // Always a way out: signed-in people go back to their dashboard, everyone else to the start page
   const back = status === "signedIn" ? { to: "/dashboard", label: "Back to dashboard" } : { to: "/", label: "Back to home" };
-  const order = side === "right" ? ["md:order-1", "md:order-2"] : ["md:order-2", "md:order-1"]; // [stage, form]
 
   return (
     <StageContext.Provider value={stage}>
       {/* Desktop: break out of the page's 80% content width so the two halves span the whole window */}
       <section className="flex flex-1 flex-col md:ml-[calc(50%-50vw)] md:w-screen md:flex-row" style={STAGE_VARS}>
-        <div className={`flex flex-1 flex-col justify-center md:w-1/2 md:flex-none md:px-[4vw] short:w-full ${order[1]}`}>
+        <div className="flex flex-1 flex-col justify-center md:order-2 md:w-1/2 md:flex-none md:px-[4vw] short:w-full">
           <div className="mx-auto flex w-full max-w-md flex-col py-6">
-            <Link
-              to={back.to}
-              className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-accent/40 bg-surface/80 px-3.5 py-1.5 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              <span aria-hidden="true">&larr;</span> {back.label}
-            </Link>
+            <div className="mb-2 flex flex-col gap-2 md:mb-4 short:flex-row short:items-center short:justify-between md:gap-3">
+              <BackLink to={back.to}>{back.label}</BackLink>
+              <TitleMark />
+            </div>
             <div className="relative h-36 md:hidden short:hidden">
               <PeekingSnowman store={gaze} hidden={revealed} speech={speech} onPoke={onPoke} />
               {speech && (
                 <Bubble
                   key={speech.id}
                   text={speech.text}
-                  className="absolute right-2 bottom-9 left-33 text-sm"
+                  className="absolute right-2 bottom-9 left-[8.25rem] text-sm"
                   tailClass="left-5"
                 />
               )}
@@ -193,11 +191,11 @@ export default function AuthShell({ side = "right", title, subtitle, footer, chi
           </div>
         </div>
 
-        <div aria-hidden="true" className={`hidden md:block md:w-1/2 short:hidden ${order[0]}`}>
+        <div aria-hidden="true" className="hidden md:order-1 md:block md:w-1/2 short:hidden">
           {/* sticky: the snowmen stay on screen while a long form scrolls */}
           <div className="sticky top-0 flex h-svh items-end justify-center">
             <div className="relative" style={{ aspectRatio: "640 / 600", width: "min(100%, calc((100svh - 4rem) * 640 / 600))" }}>
-              <SnowmanScene store={gaze} speech={speech} cheer={cheerCount} onPoke={onPoke} mirror={mirror} />
+              <SnowmanScene store={gaze} speech={speech} cheer={cheerCount} onPoke={onPoke} />
               {speech && (
                 <Bubble
                   key={speech.id}

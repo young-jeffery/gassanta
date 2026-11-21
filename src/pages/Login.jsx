@@ -95,11 +95,10 @@ function LoginForm() {
   );
 }
 
-// /login: the snowmen on the right, the form on the left (register is the mirror image)
+// /login: same frame as register (snowmen on the left, form on the right)
 export default function Login() {
   return (
     <AuthShell
-      side="left"
       title="Welcome back"
       subtitle="Log in to see your group."
       footer={

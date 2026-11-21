@@ -15,10 +15,9 @@ const SNOWMEN = [
   { x: 520, y: 576, s: 0.9, hat: "muffs", scarf: "color-mix(in oklab, var(--c-accent) 30%, #3fb8d8)" },
 ];
 
-// mirror: the stage is on the RIGHT of the screen (login), so the group is flipped: the tallest stands farthest from the
-// form, the smallest closest to it, and everyone's nose points toward the form. Same on the left, just the other way.
-export default function SnowmanScene({ store, speech, cheer, onPoke, mirror = false }) {
-  const group = mirror ? SNOWMEN.map((m) => ({ ...m, x: 640 - m.x })) : SNOWMEN;
+// The stage is always on the LEFT of the screen with the form on its right: the tallest snowman stands farthest from the
+// form, the smallest closest to it, and everyone's nose points right, toward the form.
+export default function SnowmanScene({ store, speech, cheer, onPoke }) {
   const rootRef = useRef(null);
   useSnowmanGaze(store, rootRef);
 
@@ -104,7 +103,7 @@ export default function SnowmanScene({ store, speech, cheer, onPoke, mirror = fa
         </linearGradient>
       </defs>
       <ellipse cx="320" cy="640" rx="470" ry="100" fill="url(#sm-bank-fade)" />
-      {group.map((m, i) => (
+      {SNOWMEN.map((m, i) => (
         <g
           key={m.x}
           transform={`translate(${m.x} ${m.y}) scale(${m.s})`}
@@ -112,11 +111,11 @@ export default function SnowmanScene({ store, speech, cheer, onPoke, mirror = fa
           onPointerDown={(e) => poke(i, e)}
           onPointerEnter={(e) => wiggle(e)}
         >
-          <Snowman hat={m.hat} scarf={m.scarf} facing={mirror ? "left" : "right"} />
+          <Snowman hat={m.hat} scarf={m.scarf} facing="right" />
         </g>
       ))}
       {/* snow piled in front of each base, so they look planted in it */}
-      {group.map((m) => (
+      {SNOWMEN.map((m) => (
         <ellipse key={m.x} cx={m.x} cy={m.y + 2} rx={78 * m.s} ry={11 * m.s} style={{ fill: "var(--sm-ground)" }} pointerEvents="none" />
       ))}
     </svg>

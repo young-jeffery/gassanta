@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { useGroup } from "../groups/useGroup";
+import BackLink from "../components/BackLink";
 import DevStageSwitcher from "../components/DevStageSwitcher";
 import Card from "../components/dashboard/Card";
 import InviteCard from "../components/dashboard/InviteCard";
@@ -12,7 +13,7 @@ import Tag from "../components/dashboard/Tag";
 import VerifyBanner from "../components/dashboard/VerifyBanner";
 import WishlistCard from "../components/dashboard/WishlistCard";
 import { GiftIcon, HeartListIcon, TreeIcon } from "../components/dashboard/icons";
-import { HUES } from "../components/dashboard/colors";
+import { CARDS } from "../components/dashboard/colors";
 import { deadlineText, phaseStates } from "../components/dashboard/phases";
 import { groupTitle } from "../lib/groupTitle";
 
@@ -43,9 +44,7 @@ export default function Dashboard() {
     <div className="flex flex-1 flex-col gap-5 py-6 md:py-10">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2">
-          <Link to="/" className="w-fit rounded-full border border-accent/40 bg-surface/80 px-3.5 py-1.5 text-sm font-bold text-ink">
-            <span aria-hidden="true">&larr;</span> Back to home
-          </Link>
+          <BackLink to="/">Back to home</BackLink>
           <p className="mt-2 text-sm font-bold tracking-widest text-muted uppercase">
             {group.name}
             {group.tag && <span className="ml-1 font-roman text-[1.15em] font-black">{group.tag}</span>}
@@ -79,19 +78,24 @@ export default function Dashboard() {
               ))}
             </select>
           )}
-          {/* Hover: lifts and grows, a green fill sweeps in from the left, the + spins, the text turns white */}
+          {/* Join another group. Hover: the pill lifts, a green fill slides in from the left (the pill's own background, so
+              no seams), the + turns and the arrow lights up. Both end circles are the same size and the same distance from the
+              edge, so the button is symmetrical. */}
           <Link
             to="/join"
-            className={`group relative inline-flex items-center gap-2 overflow-hidden rounded-full border-2 border-accent/60 bg-surface/90 py-2 pr-5 pl-2.5 text-sm font-bold text-ink shadow-md transition duration-300 hover:-translate-y-0.5 hover:scale-105 hover:border-[#2f9e5b] hover:shadow-xl active:scale-95 ${focusRing}`}
+            className={`group inline-flex h-11 items-center gap-2.5 rounded-full border-2 border-accent/60 bg-surface/90 px-1.5 text-sm font-bold text-ink shadow-md [background-image:linear-gradient(#2f9e5b,#2f9e5b)] [background-repeat:no-repeat] [background-size:0%_100%] transition-[background-size,transform,box-shadow,border-color,color] duration-300 ease-out hover:-translate-y-0.5 hover:border-[#2f9e5b] hover:text-white hover:shadow-xl hover:[background-size:100%_100%] active:translate-y-0 active:scale-95 ${focusRing}`}
           >
-            <span aria-hidden="true" className="absolute inset-0 -translate-x-full bg-[#2f9e5b] transition-transform duration-300 ease-out group-hover:translate-x-0" />
-            <span
-              aria-hidden="true"
-              className="relative grid h-6 w-6 place-items-center rounded-full bg-accent text-lg leading-none font-extrabold text-canvas transition-transform duration-300 group-hover:rotate-180 group-hover:scale-110"
-            >
-              +
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-canvas transition-transform duration-300 group-hover:rotate-180">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
             </span>
-            <span className="relative transition-colors duration-300 group-hover:text-white">Join another group</span>
+            <span className="leading-none">Join another group</span>
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-accent/60 transition-all duration-300 group-hover:border-white group-hover:bg-white group-hover:text-[#2f9e5b]">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
           </Link>
           <button type="button" onClick={onLogOut} className={logoutClass}>
             Log out
@@ -112,7 +116,7 @@ export default function Dashboard() {
           step={1}
           title="Registration"
           icon={<TreeIcon />}
-          hue={HUES.registration}
+          tone={CARDS.registration}
           scribble="trees"
           state={states.registration}
           description={stage === "registration" ? "You're registered. Sign-ups are open, so tell your friends." : "You're registered. Sign-ups are closed."}
@@ -122,7 +126,7 @@ export default function Dashboard() {
           step={2}
           title="Preferences"
           icon={<HeartListIcon />}
-          hue={HUES.preferences}
+          tone={CARDS.preferences}
           scribble="hearts"
           state={states.preferences}
           description={
@@ -139,7 +143,7 @@ export default function Dashboard() {
           step={3}
           title="Reveal"
           icon={<GiftIcon />}
-          hue={HUES.reveal}
+          tone={CARDS.reveal}
           scribble="gifts"
           state={states.reveal}
           description={

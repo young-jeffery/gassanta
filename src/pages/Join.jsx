@@ -38,11 +38,7 @@ export default function Join() {
   const goTo = (gid) => navigate(`/g/${gid}/dashboard`);
 
   return (
-    <AuthShell
-      side="right"
-      title={title}
-      subtitle={subtitle}
-    >
+    <AuthShell title={title} subtitle={subtitle}>
       {step === "code" && <CodeStep initialCode={params.get("code") ?? ""} onFound={onFound} />}
 
       {step === "details" && (

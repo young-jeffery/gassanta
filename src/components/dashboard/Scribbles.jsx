@@ -1,11 +1,11 @@
 // Hand-drawn scribbles for the dashboard cards: each card kind has its own little cluster of doodles (trees and snow
 // for registration, hearts for preferences, gifts for the reveal, a checklist and pencil for the wishlist, a page of
 // rules, smiley faces for members, an envelope and paper plane for invites), drawn in the card's own colour and kept
-// faint and behind the text, bottom-right.
+// faint and behind the text, bottom-right (above the card's wavy edge).
 //
 // Every kind is a 220x150 drawing made of plain lines (stroke, no fill). To add one: add a key to KINDS below and use
 // it as <Card scribble="yourKey">. To change how loud they are: OPACITY.
-const OPACITY = 0.32;
+const OPACITY = 0.28;
 
 const heart = "M0 9 C-14 -4 -12 -17 0 -12 C12 -17 14 -4 0 9 Z";
 const star = "M0 -9 L2.6 -3 L9 -2.4 L4.2 1.8 L5.6 8 L0 4.8 L-5.6 8 L-4.2 1.8 L-9 -2.4 L-2.6 -3 Z";
@@ -135,14 +135,15 @@ const KINDS = {
   ),
 };
 
-// The corner cluster behind a card's content
+// The corner cluster behind a card's content, drawn in the card's text colour
 export default function Scribbles({ kind }) {
   return (
     <svg
+      data-doodles
       aria-hidden="true"
       viewBox="0 0 220 150"
-      className="pointer-events-none absolute -right-3 -bottom-3 z-0 h-36 w-52"
-      style={{ opacity: OPACITY, color: "color-mix(in srgb, var(--card-hue) 80%, var(--c-ink))" }}
+      className="pointer-events-none absolute -right-3 bottom-5 z-0 h-36 w-52"
+      style={{ opacity: OPACITY, color: "var(--c-ink)" }}
       fill="none"
       stroke="currentColor"
       strokeWidth="2.4"
@@ -150,24 +151,6 @@ export default function Scribbles({ kind }) {
       strokeLinejoin="round"
     >
       {KINDS[kind]}
-    </svg>
-  );
-}
-
-// A hand-drawn wavy underline for a card's title
-export function TitleScribble() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 110 8"
-      className="mt-1 h-2 w-28"
-      style={{ color: "color-mix(in srgb, var(--card-hue) 85%, var(--c-ink))" }}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-    >
-      <path d="M2 5 q7 -6 14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0" />
     </svg>
   );
 }

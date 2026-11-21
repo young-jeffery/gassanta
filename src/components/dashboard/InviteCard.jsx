@@ -1,7 +1,7 @@
 import { useState } from "react";
 import AuthButton from "../auth/AuthButton";
 import Card from "./Card";
-import { HUES } from "./colors";
+import { CARDS } from "./colors";
 
 // For admins while registration is open: the join code, a link that pre-fills it, and a WhatsApp share button.
 export default function InviteCard({ code, groupName }) {
@@ -20,7 +20,7 @@ export default function InviteCard({ code, groupName }) {
   };
 
   return (
-    <Card title="Invite friends" hue={HUES.invite} scribble="envelope">
+    <Card title="Invite friends" tone={CARDS.invite} scribble="envelope">
       <p className="text-sm text-ink/90">Registration is open. Share this code or link with the people you want in.</p>
       <p className="my-3 rounded-2xl border border-dashed border-accent/60 bg-canvas/40 px-4 py-3 text-center font-mono text-2xl font-extrabold tracking-[0.3em] text-ink">
         {code}

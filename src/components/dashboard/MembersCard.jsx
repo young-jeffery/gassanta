@@ -1,6 +1,6 @@
 import { useMembers } from "../../groups/useMembers";
 import Card from "./Card";
-import { HUES } from "./colors";
+import { CARDS } from "./colors";
 import Tag from "./Tag";
 
 // Everyone in the group, by nickname (real names are only for admins). Your own entry is marked.
@@ -8,7 +8,7 @@ export default function MembersCard({ gid, myUid }) {
   const members = useMembers(gid);
 
   return (
-    <Card title="Group Members" hue={HUES.members} scribble="faces" right={members ? <span className="text-sm font-bold text-muted">{members.length}</span> : null}>
+    <Card title="Who's in" tone={CARDS.members} scribble="faces" right={members ? <span className="text-sm font-bold text-muted">{members.length}</span> : null}>
       {members === null ? (
         <p className="text-sm text-muted">Loading...</p>
       ) : (

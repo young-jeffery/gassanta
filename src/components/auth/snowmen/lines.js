@@ -1,8 +1,10 @@
-// Everything the snowmen say. Each key is an event name; AuthShell's say(event, data) picks a random line from the
-// list (never the same one twice in a row). {placeholders} are filled from `data`. Keep lines short: they appear in
+// Everything the snowmen say. Each key is an event name; AuthShell's say(event, data) draws a line from that event's
+// list like a marble from a bag (see pickLine at the bottom): every line has an equal chance, a line that was said is
+// out of the bag until all the others have been said, then the bag is refilled and reshuffled. {placeholders} are
+// filled from `data`. Keep lines short: they appear in
 // small speech bubbles. Some are jokes, some are real tips about the field you're on.
 
-const LINES = {
+export const LINES = {
   hello: [
     "Hi there! Fill in the form and we'll keep an eye on you. Not creepy. Promise.",
     "Welcome! Don't mind us, we're just standing around. It's what we do.",
@@ -148,13 +150,37 @@ export const ESCALATE = {
 // Minimum milliseconds before the SAME event may speak again (default 6000). Pokes can come fast.
 export const LINE_GAP = { poke: 700, "poke:5": 800, "poke:10": 800, "code:bad3": 500, "code:bad5": 500, "login:error2": 500, "login:error4": 500, "login:empty2": 500, "nickname:taken3": 500, invalid3: 500, "password:mismatch3": 500, "email:mismatch3": 500, "reveal:flip": 500, idle: 12000, hello: 60000, "nickname:free": 2500, "nickname:taken": 2500, "code:bad": 2000 };
 
-const lastByEvent = {};
+// The marble bags, one per event, kept for as long as the page stays open (so they carry over between register, login
+// and forgot-password). `left` = lines still in the bag, `last` = the line drawn most recently.
+const bags = {};
+
+function shuffled(items) {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Empties every bag (used by tests)
+export function resetLineBags() {
+  Object.keys(bags).forEach((key) => delete bags[key]);
+}
 
 export function pickLine(event, data = {}) {
   const pool = LINES[event];
   if (!pool || pool.length === 0) return null;
-  let line = pool[Math.floor(Math.random() * pool.length)];
-  if (pool.length > 1 && line === lastByEvent[event]) line = pool[(pool.indexOf(line) + 1) % pool.length];
-  lastByEvent[event] = line;
+  if (!bags[event]) bags[event] = { left: [], last: null };
+  const bag = bags[event];
+  if (bag.left.length === 0) {
+    bag.left = shuffled(pool);
+    // The next draw comes from the END of the array. If it is the line that closed the previous bag, swap it away
+    // so the same line is never said twice in a row across a refill.
+    const end = bag.left.length - 1;
+    if (pool.length > 1 && bag.left[end] === bag.last) [bag.left[end], bag.left[0]] = [bag.left[0], bag.left[end]];
+  }
+  const line = bag.left.pop();
+  bag.last = line;
   return line.replace(/\{(\w+)\}/g, (_, key) => String(data[key] ?? "").trim());
 }

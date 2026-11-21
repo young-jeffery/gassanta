@@ -1,6 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { useRef } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { useLayoutEffect, useRef } from "react";
 import { prefersReducedMotion } from "../lib/motion";
 import { isLite } from "../lib/lite";
 import { useLite } from "../lib/useLite";
@@ -13,12 +12,18 @@ import PerfHud from "./PerfHud";
 import ChristmasDoodles from "./ChristmasDoodles";
 import Dock from "./Dock";
 import Blizzard from "./Blizzard";
+import FrostWipe from "./FrostWipe";
 import { consumeArrival } from "../lib/blizzard";
+import { playFrost } from "../lib/frost";
+
+// Moving among these pages must feel seamless (no transition at all): the join-code, sign-up, log-in and reset flows
+const AUTH_PAGES = new Set(["/register", "/join", "/login", "/forgot"]);
+const LITE_FADE_MS = 250;
 
 // Shell around every page: soft glow background, snow, page-enter animation, dust trail, and the dock.
 //
-// Lite mode (lib/lite.js) removes everything that animates: snow, dust trail, custom cursor, blizzard overlay and
-// the page-enter fade. Sounds (useGlobalSfx + the page-change sound below) work in both modes.
+// Lite mode (lib/lite.js) removes everything that animates: snow, dust trail, custom cursor, blizzard and frost overlays.
+// Page changes get a plain quarter-second fade instead. Sounds (useGlobalSfx + the page-change sound below) work in both.
 //
 // Stacking order (low to high):
 //   z-0   glow background, Christmas doodle pattern (non-landing pages)
@@ -27,6 +32,7 @@ import { consumeArrival } from "../lib/blizzard";
 //   z-10  page content
 //   z-90  pointer dust trail
 //   z-95  desktop hover cursor (rotating snowflake)
+//   z-96  frost overlay (the ordinary page transition, lib/frost.js; hidden except while it plays)
 //   z-97  blizzard whiteout (page transition from the landing page; hidden except while it plays)
 //   z-100 fps meter (only with ?fps in the URL)
 //
@@ -40,33 +46,43 @@ export default function Layout() {
   const { pathname } = useLocation();
   const { lite } = useLite();
   const mainRef = useRef(null);
-  const firstLoad = useRef(true);
+  const prevPath = useRef(pathname);
+  const lastDoor = useRef(0);
   const onLanding = pathname === "/";
 
   useGlobalSfx();
 
-  // On every route change: a soft "door" sound (not on the first load, and not after the landing page's blizzard, which
-  // has its own sounds), then fade/slide the page in. The fade is skipped after the blizzard (the whiteout already
-  // covers the screen while the new page loads underneath and melts away to reveal it), and in lite mode.
-  useGSAP(
-    () => {
-      const arrival = consumeArrival();
-      const initial = firstLoad.current;
-      firstLoad.current = false;
-      if (!initial && !arrival) sfx.door();
-      if (arrival) {
-        gsap.set(mainRef.current, { opacity: 1, y: 0 });
-        return;
-      }
-      if (prefersReducedMotion() || isLite()) return;
-      gsap.fromTo(mainRef.current, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" });
-    },
-    { dependencies: [pathname] }
-  );
+  // On every route change (the first load is skipped: the path hasn't changed yet):
+  //   - a soft "door" sound (not after the landing page's blizzard, which has its own sounds; once only if redirects
+  //     chain several changes together)
+  //   - the page transition. None after the blizzard, and none between the AUTH_PAGES. Leaving the landing page
+  //     normally means the blizzard played; the rare other way out gets no transition. Everything else: the freeze-and-
+  //     melt frost (lib/frost.js), or in lite mode a plain fade. Reduced motion: nothing.
+  // A layout effect, so the frost is on screen before the browser paints the new page. It is deliberately NOT inside
+  // useGSAP: that would revert the frost timeline when the next route change re-runs the effect.
+  useLayoutEffect(() => {
+    const from = prevPath.current;
+    if (from === pathname) return;
+    prevPath.current = pathname;
+
+    const arrival = consumeArrival();
+    const now = performance.now();
+    if (!arrival && now - lastDoor.current > 400) {
+      lastDoor.current = now;
+      sfx.door();
+    }
+    if (arrival || prefersReducedMotion()) return;
+    if (AUTH_PAGES.has(from) && AUTH_PAGES.has(pathname)) return;
+    if (isLite()) {
+      mainRef.current?.animate({ opacity: [0, 1] }, { duration: LITE_FADE_MS, easing: "ease-out" });
+      return;
+    }
+    if (from === "/") return;
+    playFrost();
+  }, [pathname]);
 
   return (
-    // overflow-clip (not overflow-hidden): anything that sticks out, like the 18px slide-in above, is
-    // clipped and can't create a scrollbar mid-animation.
+    // overflow-clip (not overflow-hidden): anything that sticks out is clipped and can't create a scrollbar.
     <div className="relative min-h-svh overflow-clip">
       {/* Soft colored glows behind everything; they follow the active palette.
           Skipped on the landing page: its opaque sky covers them, and every full-screen layer costs GPU memory.
@@ -102,6 +118,7 @@ export default function Layout() {
 
       {!lite && <DustTrail />}
       {!lite && <Blizzard />}
+      {!lite && <FrostWipe />}
       {!lite && <CursorFlake />}
       <PerfHud />
       <Dock />
